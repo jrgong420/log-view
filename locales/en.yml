@@ -1,5 +1,10 @@
 en:
   theme_metadata:
-    description: Filter by topic author
+    description: "Automatically filters topics in configured categories to show only the topic owner's posts with expanded inline replies, creating a journal or comments view."
     settings:
-      example_setting: A description of a setting.
+      owner_comment_categories: "Category slugs or IDs where topics will auto-filter to show only the topic owner's posts. Separate multiple categories with | (e.g., 'journal|blog' or '5|12')"
+      owner_comment_prefetch: "Number of replies to automatically expand under each owner post. Set to 0 to disable auto-expansion. Maximum 10 replies."
+  js:
+    owner_comments:
+      filtered_notice: "Viewing only posts by topic owner"
+      loading_replies: "Loading replies..."
