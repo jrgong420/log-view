@@ -28,13 +28,9 @@ We now use two different plugin outlets to ensure the toggle button is always vi
 javascripts/discourse/
 ├── components/
 │   └── owner-toggle-button.gjs          # Shared toggle button component
-├── connectors/
-│   ├── timeline-footer-controls-after/
-│   │   └── owner-toggle.gjs             # Desktop connector
-│   └── before-topic-progress/
-│       └── owner-toggle.gjs             # Mobile connector
 └── api-initializers/
-    └── owner-comment-prototype.gjs      # Original footer button (preserved)
+    ├── owner-comment-prototype.gjs      # Owner filtering logic
+    └── owner-toggle-outlets.gjs         # Registers desktop & mobile outlets
 ```
 
 ### Shared Component: `owner-toggle-button.gjs`
@@ -45,13 +41,20 @@ A reusable Glimmer component that:
 - Manages opt-out state in sessionStorage
 - Uses translations from `locales/en.yml`
 
-### Connectors
-Both connectors:
-- Import and render the shared `OwnerToggleButton` component
-- Pass the topic model via `@outletArgs.model`
-- Use `shouldRender()` to conditionally render based on device type:
-  - Desktop connector: `!site.mobileView`
-  - Mobile connector: `site.mobileView`
+### Outlet Initializer: `owner-toggle-outlets.gjs`
+
+Registers two Glimmer components via `api.renderInOutlet`:
+
+- **TimelineOwnerToggle** → `timeline-footer-controls-after`
+  - Only renders on desktop (`!site.mobileView`)
+  - Respects group access control and category checks via `shouldShowToggleButton`
+  - Wraps the shared `OwnerToggleButton` in `.owner-toggle-wrapper--timeline`
+- **MobileOwnerToggle** → `before-topic-progress`
+  - Only renders on mobile (`site.mobileView`)
+  - Shares the same access/category guards
+  - Wraps the button in `.owner-toggle-wrapper--mobile`
+
+Both components reuse the shared `OwnerToggleButton` and guard rendering through `static shouldRender`, aligning with the latest guidance to replace legacy connector classes.
 
 ### Styling
 CSS in `common/common.scss`:
@@ -100,4 +103,3 @@ static shouldRender(outletArgs, helper) {
 - Consider hiding/removing the original footer button placement
 - Add theme setting to choose which outlets to use
 - Add animation when toggling between states
-

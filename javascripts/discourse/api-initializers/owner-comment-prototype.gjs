@@ -115,10 +115,10 @@ export default apiInitializer("1.15.0", (api) => {
     // This function remains for backward compatibility with earlier logic.
   }
 
-  // Toggle button is now rendered via plugin outlet connectors:
+  // Toggle button is now rendered via renderInOutlet registrations:
   // - Desktop: timeline-footer-controls-after
   // - Mobile: before-topic-progress
-  // See: javascripts/discourse/connectors/ and components/owner-toggle-button.gjs
+  // See: javascripts/discourse/api-initializers/owner-toggle-outlets.gjs
 
 
   // One-shot suppression flags for current view only
@@ -248,4 +248,3 @@ export default apiInitializer("1.15.0", (api) => {
   });
 
 });
-

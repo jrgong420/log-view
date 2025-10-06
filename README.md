@@ -130,14 +130,10 @@ log-view/
 │       ├── api-initializers/
 │       │   ├── group-access-control.gjs    # Group access control logic
 │       │   ├── log-view.gjs                # Main initializer (placeholder)
-│       │   └── owner-comment-prototype.gjs # Owner filtering logic
+│       │   ├── owner-comment-prototype.gjs # Owner filtering logic
+│       │   └── owner-toggle-outlets.gjs    # Registers toggle button outlets
 │       ├── components/
 │       │   └── owner-toggle-button.gjs     # Toggle button component
-│       ├── connectors/
-│       │   ├── before-topic-progress/      # Mobile outlet
-│       │   │   └── owner-toggle.gjs
-│       │   └── timeline-footer-controls-after/  # Desktop outlet
-│       │       └── owner-toggle.gjs
 │       └── lib/
 │           └── group-access-utils.js       # Shared access check utility
 └── common/
