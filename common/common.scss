@@ -3,3 +3,23 @@
 
 /* Hide core filtered notice per component requirements */
 div.posts-filtered-notice { display: none; }
+
+
+/* Sticky owner-toggle button at bottom of viewport on desktop */
+.topic-footer-buttons {
+  // Desktop: make the footer buttons container sticky at bottom
+  @media screen and (width >= 768px) {
+    position: sticky;
+    bottom: 0;
+    z-index: 100;
+    background: var(--secondary);
+    padding: 1rem 0;
+    box-shadow: 0 -2px 8px rgb(0, 0, 0, 0.1);
+    margin-top: 2rem;
+  }
+}
+
+// Ensure button has proper styling
+.owner-toggle-button {
+  // Additional button-specific styles if needed
+}

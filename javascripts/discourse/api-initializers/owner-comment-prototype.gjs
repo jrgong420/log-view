@@ -1,6 +1,5 @@
 import { schedule } from "@ember/runloop";
 import { apiInitializer } from "discourse/lib/api";
-import { i18n } from "discourse-i18n";
 
 // Note: `settings` is a global variable provided by Discourse for theme components
 // It contains all theme settings defined in settings.yml
@@ -145,14 +144,19 @@ export default apiInitializer("1.15.0", (api) => {
     icon() {
       return isOwnerFiltered(this.topic) ? "toggle-on" : "toggle-off";
     },
-    translatedLabel() {
+    label() {
       return isOwnerFiltered(this.topic)
-        ? i18n("owner_toggle.filtered")
-        : i18n("owner_toggle.unfiltered");
+        ? "owner_toggle.filtered"
+        : "owner_toggle.unfiltered";
+    },
+    dropdown() {
+      // Show in mobile dropdown, inline on desktop
+      return this.site.mobileView;
     },
     displayed() {
       return settings.toggle_view_button_enabled && !!this.topic;
     },
+    classNames: ["owner-toggle-button"],
     action() {
       const t = this.topic;
       const owner = t?.details?.created_by?.username;
