@@ -89,6 +89,50 @@ export default apiInitializer("1.15.0", (api) => {
     delete document.body.dataset.ownerCommentMode;
   }
 
+  // Per-topic auto-mode opt-out helpers (session-scoped)
+  const OPT_OUT_PREFIX = "ownerCommentsOptOut:";
+  function optOutKey(topicId) {
+    return `${OPT_OUT_PREFIX}${topicId}`;
+  }
+  function setOptOut(topicId) {
+    try {
+      sessionStorage.setItem(optOutKey(topicId), "1");
+    } catch (e) {}
+  }
+  function isOptOut(topicId) {
+    try {
+      return sessionStorage.getItem(optOutKey(topicId)) === "1";
+    } catch (e) {
+      return false;
+    }
+  }
+  function clearOptOut(topicId) {
+    try {
+      sessionStorage.removeItem(optOutKey(topicId));
+    } catch (e) {}
+  }
+  function bindOptOutClick(topicId) {
+    const notice = document.querySelector(".posts-filtered-notice");
+    if (!notice || notice.dataset.ownerCommentsBound === "1") {
+      return;
+    }
+    const clickable = notice.querySelector("button, a");
+    if (!clickable) {
+      return;
+    }
+    clickable.addEventListener(
+      "click",
+      () => {
+        debugLog(
+          "User opted out via filtered notice; suppressing auto-mode"
+        );
+        setOptOut(topicId);
+      },
+      { once: true }
+    );
+    notice.dataset.ownerCommentsBound = "1";
+  }
+
   // Hook into page changes to detect topic navigation
   api.onPageChange(() => {
     debugLog("=== Page change detected ===");
@@ -117,12 +161,35 @@ export default apiInitializer("1.15.0", (api) => {
         return;
       }
 
+      // Evaluate current filter state and auto-mode
+      const url = new URL(window.location.href);
+      const currentFilter = url.searchParams.get("username_filters");
+      const ownerUsername = topic?.details?.created_by?.username;
+
+      if (currentFilter && ownerUsername && currentFilter === ownerUsername) {
+        debugLog("Already server-filtered by owner; marking mode and binding opt-out");
+        document.body.dataset.ownerCommentMode = "true";
+        bindOptOutClick(topic.id);
+        return;
+      }
+
+      if (settings.auto_mode === false) {
+        debugLog("Auto-mode disabled via setting; skipping auto-filter");
+        clearOwnerFilter();
+        return;
+      }
+
+      if (isOptOut(topic.id)) {
+        debugLog("User opted out of auto-mode for this topic; skipping");
+        clearOwnerFilter();
+        return;
+      }
+
       // Check if this topic's category is enabled for owner comments
       if (isCategoryEnabled(topic, settings)) {
         debugLog("Category is enabled; ensuring server-side filter");
         const ok = ensureServerSideFilter(topic);
         if (ok) {
-          // filtered by server; mark dataset for CSS scoping
           document.body.dataset.ownerCommentMode = "true";
         }
       } else {
