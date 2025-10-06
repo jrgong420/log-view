@@ -26,7 +26,7 @@ export default class OwnerToggleButton extends Component {
     return this.isOwnerFiltered ? "toggle-on" : "toggle-off";
   }
 
-  get label() {
+  get translatedLabel() {
     const prefix = "theme_translations.owner_toggle";
     return this.isOwnerFiltered
       ? i18n(`${prefix}.filtered`)
@@ -76,7 +76,7 @@ export default class OwnerToggleButton extends Component {
   <template>
     <DButton
       @icon={{this.icon}}
-      @label={{this.label}}
+      @translatedLabel={{this.translatedLabel}}
       @action={{this.toggleFilter}}
       class="btn-default owner-toggle-button {{if this.isOwnerFiltered 'filtered' 'unfiltered'}}"
     />
