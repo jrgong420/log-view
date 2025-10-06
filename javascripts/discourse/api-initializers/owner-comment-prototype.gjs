@@ -1,6 +1,6 @@
 import { schedule } from "@ember/runloop";
 import { apiInitializer } from "discourse/lib/api";
-// import DiscourseURL from "discourse/lib/url";
+import { i18n } from "discourse-i18n";
 
 // Note: `settings` is a global variable provided by Discourse for theme components
 // It contains all theme settings defined in settings.yml
@@ -96,24 +96,80 @@ export default apiInitializer("1.15.0", (api) => {
   function setOptOut(topicId) {
     try {
       sessionStorage.setItem(optOutKey(topicId), "1");
-    } catch (e) {}
+    } catch {}
   }
   function isOptOut(topicId) {
     try {
       return sessionStorage.getItem(optOutKey(topicId)) === "1";
-    } catch (e) {
+    } catch {
       return false;
     }
   }
   function clearOptOut(topicId) {
     try {
       sessionStorage.removeItem(optOutKey(topicId));
-    } catch (e) {}
+    } catch {}
   }
-  function bindOptOutClick(topicId) {
+  function bindOptOutClick() {
     // No-op: opt-out click is handled via a global delegated listener
     // This function remains for backward compatibility with earlier logic.
   }
+
+  // --- Toggle helpers and topic footer button registration ---
+  function isOwnerFiltered(topic) {
+    const owner = topic?.details?.created_by?.username;
+    const url = new URL(window.location.href);
+    const current = url.searchParams.get("username_filters");
+    return !!owner && current === owner;
+  }
+
+  function goOwnerFiltered(owner) {
+    if (!owner) { return; }
+    const url = new URL(window.location.href);
+    url.searchParams.set("username_filters", owner);
+    debugLog("Toggle → owner-filtered URL:", url.toString());
+    window.location.replace(url.toString());
+  }
+
+  function goUnfiltered(topicId) {
+    if (topicId) { setOptOut(topicId); } // one-shot opt-out so auto-mode won't immediately re-apply
+    const url = new URL(window.location.href);
+    url.searchParams.delete("username_filters");
+    debugLog("Toggle → unfiltered URL:", url.toString());
+    window.location.replace(url.toString());
+  }
+
+  // Prefer stable, supported placement via Topic Footer Button API
+  api.registerTopicFooterButton({
+    id: "owner-toggle",
+    icon() {
+      return isOwnerFiltered(this.topic) ? "toggle-on" : "toggle-off";
+    },
+    translatedLabel() {
+      return isOwnerFiltered(this.topic)
+        ? i18n("owner_toggle.filtered")
+        : i18n("owner_toggle.unfiltered");
+    },
+    // Always show inline (not in dropdown) so we can position it with CSS
+    dropdown: false,
+    displayed() {
+      return settings.toggle_view_button_enabled && !!this.topic;
+    },
+    classNames: ["owner-toggle-button"],
+    action() {
+      const t = this.topic;
+      const owner = t?.details?.created_by?.username;
+      if (isOwnerFiltered(t)) {
+        goUnfiltered(t?.id);
+      } else {
+        goOwnerFiltered(owner);
+      }
+    },
+    // Re-render on topic change/mobile view change; URL param change implies navigation
+    dependentKeys: ["topic.id", "site.mobileView", "topic.details.created_by.username"],
+    priority: 10
+  });
+
 
   // One-shot suppression flags for current view only
   let suppressNextAutoFilter = false;
@@ -128,7 +184,7 @@ export default apiInitializer("1.15.0", (api) => {
         const target = e.target?.closest?.(
           ".posts-filtered-notice button, .posts-filtered-notice a"
         );
-        if (!target) return;
+        if (!target) { return; }
         try {
           const topic = api.container.lookup("controller:topic")?.model;
           const topicId = topic?.id;
@@ -139,7 +195,7 @@ export default apiInitializer("1.15.0", (api) => {
             suppressNextAutoFilter = true;
             suppressedTopicId = topicId;
           }
-        } catch (err) {
+        } catch {
           // no-op
         }
       },
@@ -156,6 +212,8 @@ export default apiInitializer("1.15.0", (api) => {
       debugLog("Running afterRender hook");
 
       const topicController = api.container.lookup("controller:topic");
+
+
       debugLog("Topic controller:", topicController);
 
       const topic = topicController?.model;
@@ -179,8 +237,16 @@ export default apiInitializer("1.15.0", (api) => {
       // Evaluate current filter state and auto-mode
       const url = new URL(window.location.href);
       const currentFilter = url.searchParams.get("username_filters");
-      const ownerUsername = topic?.details?.created_by?.username;
       const hasFilteredNotice = !!document.querySelector(".posts-filtered-notice");
+
+
+      // One-shot per-topic opt-out (set when user toggles to unfiltered)
+      if (isOptOut(topic.id)) {
+        debugLog("Opt-out present; skipping auto-filter once for this topic");
+        clearOptOut(topic.id);
+        clearOwnerFilter();
+        return;
+      }
 
       // If the page is already filtered (URL param or UI notice), do not re-apply.
       if (currentFilter || hasFilteredNotice) {
@@ -194,20 +260,20 @@ export default apiInitializer("1.15.0", (api) => {
         return;
       }
 
-	      // One-shot suppression after user opted out: skip auto-filter for this view only
-	      if (suppressNextAutoFilter) {
-	        if (topic.id === suppressedTopicId) {
-	          debugLog("One-shot suppression active; skipping auto-filter for this view");
-	          suppressNextAutoFilter = false;
-	          suppressedTopicId = null;
-	          clearOwnerFilter();
-	          return;
-	        } else {
-	          // Topic changed unexpectedly; clear the suppression
-	          suppressNextAutoFilter = false;
-	          suppressedTopicId = null;
-	        }
-	      }
+      // One-shot suppression after user opted out: skip auto-filter for this view only
+      if (suppressNextAutoFilter) {
+        if (topic.id === suppressedTopicId) {
+          debugLog("One-shot suppression active; skipping auto-filter for this view");
+          suppressNextAutoFilter = false;
+          suppressedTopicId = null;
+          clearOwnerFilter();
+          return;
+        } else {
+          // Topic changed unexpectedly; clear the suppression
+          suppressNextAutoFilter = false;
+          suppressedTopicId = null;
+        }
+      }
 
 
       if (settings.auto_mode === false) {

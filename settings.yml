@@ -9,3 +9,11 @@ auto_mode:
   type: bool
   default: true
   description: "Automatically enable owner-only filtered view in enabled categories"
+
+
+# Toggle button to switch between regular and owner-filtered views
+toggle_view_button_enabled:
+  type: bool
+  default: true
+  description: "Enable/disable the toggle view button"
+
