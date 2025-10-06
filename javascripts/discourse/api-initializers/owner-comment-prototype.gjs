@@ -197,6 +197,85 @@ export default apiInitializer("1.15.0", (api) => {
     }
   }
 
+  // Per-post DOM prefetch helper for decorateCookedElement
+  async function domPrefetchOwnerRepliesInPost(postEl, prefetchCount) {
+    try {
+      if (!postEl || !prefetchCount || isNaN(prefetchCount) || prefetchCount <= 0) {
+        return;
+      }
+
+      const replyToggleSelectors = [
+        ".toggle-replies",
+        ".more-replies",
+        ".expand-hidden",
+        ".show-replies",
+        ".collapsed-replies .toggle-replies",
+      ];
+
+      let clicks = 0;
+      const maxClicks = Math.max(3, prefetchCount);
+
+      while (clicks < prefetchCount && clicks < maxClicks) {
+        let btn;
+        for (const sel of replyToggleSelectors) {
+          btn = postEl.querySelector(sel);
+          if (btn) {
+            break;
+          }
+        }
+        if (!btn) {
+          debugLog("Per-post prefetch: no toggle found");
+          break;
+        }
+        debugLog("Per-post prefetch: clicking replies toggle", clicks + 1);
+        btn.click();
+        clicks++;
+        await new Promise((r) => setTimeout(r, 150));
+      }
+    } catch (e) {
+      debugLog("Per-post DOM prefetch error:", e);
+      // eslint-disable-next-line no-console
+      console.error("[Owner Comments] Per-post DOM prefetch error:", e);
+    }
+  }
+
+  // Prefer modern hook that runs each time a post's cooked content renders
+  api.decorateCookedElement(
+    (elem) => {
+      try {
+        if (document.body.dataset.ownerCommentMode !== "true") {
+          return;
+        }
+        const prefetchCount = parseInt(settings?.owner_comment_prefetch, 10) || 0;
+        if (prefetchCount <= 0) {
+          return;
+        }
+
+        // Find the outer post element for this cooked content
+        const postEl = elem.closest(".topic-post, article");
+        if (!postEl) {
+          return;
+        }
+
+        // Only act on owner posts
+        const isOwnerPost =
+          postEl.classList.contains("topic-owner") ||
+          postEl.getAttribute("data-topic-owner") === "true";
+        if (!isOwnerPost) {
+          return;
+        }
+
+        // Run per-post prefetch after a short delay to ensure buttons are in DOM
+        setTimeout(() => domPrefetchOwnerRepliesInPost(postEl, prefetchCount), 50);
+      } catch (e) {
+        debugLog("decorateCookedElement prefetch error:", e);
+      }
+    },
+    { id: "owner-comments-prefetch", onlyStream: true }
+  );
+
+
+
   // Hook into page changes to detect topic navigation
   api.onPageChange(() => {
     debugLog("=== Page change detected ===");
