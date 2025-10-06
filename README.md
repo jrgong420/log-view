@@ -23,13 +23,13 @@ A Discourse theme component that automatically filters topics in configured cate
 ### Basic Settings
 
 #### Owner Comment Categories
-Select the categories where topics will automatically filter to show only the topic owner's posts.
+Select the categories where topics will automatically filter to show only the topic owner's posts. **The toggle button will only appear in these configured categories.**
 
 #### Auto Mode
 When enabled, the owner-only filtered view is automatically applied in enabled categories. Users can still toggle back to the unfiltered view.
 
 #### Toggle View Button
-Enable or disable the toggle button that allows users to switch between filtered and unfiltered views.
+Enable or disable the toggle button that allows users to switch between filtered and unfiltered views. **Note**: The toggle button will only appear in categories configured in "Owner Comment Categories", even when this setting is enabled.
 
 ### Group-Based Access Control
 
@@ -72,10 +72,11 @@ Choose how to handle anonymous (logged-out) users:
 ### Client-Side Gating
 The group access control is implemented entirely on the client side using Discourse's theme component APIs:
 
-1. **Settings Check**: The theme reads the configured allowed groups from theme settings
-2. **User Check**: On page load and navigation, the theme checks if the current user belongs to any allowed group
-3. **Rendering Control**:
-   - Plugin outlet connectors use `shouldRender()` to prevent rendering for non-members
+1. **Settings Check**: The theme reads the configured allowed groups and categories from theme settings
+2. **Category Check**: The toggle button only appears in topics within configured "Owner Comment Categories"
+3. **User Check**: On page load and navigation, the theme checks if the current user belongs to any allowed group
+4. **Rendering Control**:
+   - Plugin outlet connectors use `shouldRender()` to prevent rendering for non-members or in unconfigured categories
    - A body class (`theme-component-access-granted`) is added/removed based on access
    - CSS rules hide features when the body class is absent (fallback)
 
