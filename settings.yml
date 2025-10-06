@@ -32,16 +32,9 @@ include_staff:
 
 
 allowed_groups:
-  type: objects
-  default: []
-  schema:
-    name: group_rule
-    properties:
-      groups:
-        type: groups
-        required: true
-        validations:
-          min: 1
+  type: list
+  list_type: group
+  default: ""
   description: "Select groups that are allowed to access this theme component's features"
 
 

@@ -23,9 +23,8 @@ The group-based access control feature allows you to restrict the Log View theme
 ### Step 2: Configure Allowed Groups
 
 1. Scroll to **Allowed Groups** setting
-2. Click **Add Item**
-3. In the group picker, select one or more groups
-4. Click **Save**
+2. Use the group picker to select one or more groups
+3. Click **Save**
 
 ### Step 3: Test
 
@@ -68,9 +67,9 @@ The group-based access control feature allows you to restrict the Log View theme
 **Purpose**: Select which groups can access the theme component
 
 **Configuration**:
-- Type: Objects with groups property
+- Type: List with group picker
 - Default: Empty (no groups)
-- Can select multiple groups
+- Can select multiple groups using the native Discourse group picker
 
 **How it works**:
 - Users must be a member of **at least one** selected group (OR logic)

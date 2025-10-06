@@ -32,10 +32,12 @@ export function isUserAllowedAccess(helper) {
     return true;
   }
 
-  // Extract allowed group IDs from the objects setting
-  const allowedGroupIds = (themeSettings.allowed_groups || [])
-    .flatMap((rule) => rule.groups || [])
-    .filter(Boolean);
+  // Extract allowed group IDs from the list setting (pipe-separated)
+  const allowedGroupsSetting = themeSettings.allowed_groups || "";
+  const allowedGroupIds = allowedGroupsSetting
+    .split("|")
+    .map((id) => parseInt(id.trim(), 10))
+    .filter((id) => !isNaN(id));
 
   // If no groups are configured, deny by default (safe default)
   if (allowedGroupIds.length === 0) {
@@ -59,17 +61,34 @@ export function shouldShowToggleButton(outletArgs) {
 
   // Check if toggle button is enabled in settings
   if (!themeSettings.toggle_view_button_enabled) {
+    // eslint-disable-next-line no-console
+    console.log(
+      "[Toggle Button] Toggle button disabled in settings:",
+      themeSettings.toggle_view_button_enabled
+    );
     return false;
   }
 
   // Get the topic from outlet args
   const topic = outletArgs?.model;
   if (!topic) {
+    // eslint-disable-next-line no-console
+    console.log("[Toggle Button] No topic found in outlet args");
     return false;
   }
 
   // Check if category is configured for owner comments
-  return isCategoryEnabled(topic, themeSettings);
+  const categoryEnabled = isCategoryEnabled(topic, themeSettings);
+  // eslint-disable-next-line no-console
+  console.log(
+    "[Toggle Button] Category check result:",
+    categoryEnabled,
+    "for topic category:",
+    topic.category_id,
+    "enabled categories:",
+    themeSettings.owner_comment_categories
+  );
+  return categoryEnabled;
 }
 
 /**

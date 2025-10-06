@@ -9,7 +9,7 @@ import { apiInitializer } from "discourse/lib/api";
  * Settings used:
  * - group_access_enabled: master switch for group gating
  * - include_staff: allow staff regardless of group membership
- * - allowed_groups: objects setting with groups property
+ * - allowed_groups: list setting with group IDs (pipe-separated)
  * - behavior_for_anonymous: "deny" or "allow" for logged-out users
  */
 export default apiInitializer("1.15.0", (api) => {
@@ -50,10 +50,12 @@ export default apiInitializer("1.15.0", (api) => {
       return true;
     }
 
-    // Extract allowed group IDs from the objects setting
-    const allowedGroupIds = (settings.allowed_groups || [])
-      .flatMap((rule) => rule.groups || [])
-      .filter(Boolean);
+    // Extract allowed group IDs from the list setting (pipe-separated)
+    const allowedGroupsSetting = settings.allowed_groups || "";
+    const allowedGroupIds = allowedGroupsSetting
+      .split("|")
+      .map((id) => parseInt(id.trim(), 10))
+      .filter((id) => !isNaN(id));
 
     debugLog("Allowed group IDs:", allowedGroupIds);
 
