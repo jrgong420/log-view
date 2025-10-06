@@ -13,9 +13,9 @@ export function isUserAllowedAccess(helper) {
   const currentUser = owner.lookup("service:current-user")?.user;
 
   // Get theme settings from the global settings object
-  // Note: In connectors, we need to access settings differently
-  // The settings object is available globally in theme components
-  const themeSettings = window.settings || {};
+  // Note: In connectors, settings is available globally (not window.settings)
+
+  const themeSettings = typeof settings !== "undefined" ? settings : {};
 
   // If group access control is disabled, allow everyone
   if (!themeSettings.group_access_enabled) {
@@ -57,7 +57,16 @@ export function isUserAllowedAccess(helper) {
  * @returns {boolean} true if toggle button should be shown, false otherwise
  */
 export function shouldShowToggleButton(outletArgs) {
-  const themeSettings = window.settings || {};
+
+  const themeSettings = typeof settings !== "undefined" ? settings : {};
+
+  // eslint-disable-next-line no-console
+  console.log(
+    "[Toggle Button] Settings object:",
+    themeSettings,
+    "toggle_view_button_enabled:",
+    themeSettings.toggle_view_button_enabled
+  );
 
   // Check if toggle button is enabled in settings
   if (!themeSettings.toggle_view_button_enabled) {
