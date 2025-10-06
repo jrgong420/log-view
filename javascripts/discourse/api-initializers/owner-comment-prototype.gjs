@@ -111,26 +111,13 @@ export default apiInitializer("1.15.0", (api) => {
     } catch (e) {}
   }
   function bindOptOutClick(topicId) {
-    const notice = document.querySelector(".posts-filtered-notice");
-    if (!notice || notice.dataset.ownerCommentsBound === "1") {
-      return;
-    }
-    const clickable = notice.querySelector("button, a");
-    if (!clickable) {
-      return;
-    }
-    clickable.addEventListener(
-      "click",
-      () => {
-        debugLog(
-          "User opted out via filtered notice; suppressing auto-mode"
-        );
-        setOptOut(topicId);
-      },
-      { once: true }
-    );
-    notice.dataset.ownerCommentsBound = "1";
+    // No-op: opt-out click is handled via a global delegated listener
+    // This function remains for backward compatibility with earlier logic.
   }
+
+  // One-shot suppression flags for current view only
+  let suppressNextAutoFilter = false;
+  let suppressedTopicId = null;
 
   // Global delegated click listener for opt-out that survives re-renders
   let optOutDelegationBound = false;
@@ -147,9 +134,10 @@ export default apiInitializer("1.15.0", (api) => {
           const topicId = topic?.id;
           if (topicId) {
             debugLog(
-              "User opted out via filtered notice (delegated); suppressing auto-mode"
+              "User opted out via filtered notice (delegated); suppressing auto-mode for this view only"
             );
-            setOptOut(topicId);
+            suppressNextAutoFilter = true;
+            suppressedTopicId = topicId;
           }
         } catch (err) {
           // no-op
@@ -206,17 +194,28 @@ export default apiInitializer("1.15.0", (api) => {
         return;
       }
 
+	      // One-shot suppression after user opted out: skip auto-filter for this view only
+	      if (suppressNextAutoFilter) {
+	        if (topic.id === suppressedTopicId) {
+	          debugLog("One-shot suppression active; skipping auto-filter for this view");
+	          suppressNextAutoFilter = false;
+	          suppressedTopicId = null;
+	          clearOwnerFilter();
+	          return;
+	        } else {
+	          // Topic changed unexpectedly; clear the suppression
+	          suppressNextAutoFilter = false;
+	          suppressedTopicId = null;
+	        }
+	      }
+
+
       if (settings.auto_mode === false) {
         debugLog("Auto-mode disabled via setting; skipping auto-filter");
         clearOwnerFilter();
         return;
       }
 
-      if (isOptOut(topic.id)) {
-        debugLog("User opted out of auto-mode for this topic; skipping");
-        clearOwnerFilter();
-        return;
-      }
 
       // Check if this topic's category is enabled for owner comments
       if (isCategoryEnabled(topic, settings)) {
