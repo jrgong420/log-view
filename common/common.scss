@@ -5,41 +5,7 @@
 div.posts-filtered-notice { display: none; }
 
 
-/* Fixed owner-toggle button at bottom of viewport */
-// Button is always inline (not in dropdown), so we can position it freely
-#topic-footer-button-owner-toggle {
-  position: fixed;
-  z-index: 100;
-  background: var(--secondary);
-  padding: 0.75rem 1.25rem;
-  box-shadow: 0 2px 12px rgb(0, 0, 0, 0.15);
-  border-radius: 4px;
-  border: 1px solid var(--primary-low);
-
-  // Desktop: bottom-right corner
-  @media screen and (width >= 768px) {
-    bottom: 1rem;
-    right: 1rem;
-  }
-
-  // Mobile: bottom-left corner
-  @media screen and (width < 768px) {
-    bottom: 1rem;
-    left: 1rem;
-  }
-}
-
-
-/* Ensure label text is visible on mobile for the owner-toggle button */
-/* Override core CSS that hides button labels on mobile for logged-in users */
-@media (max-width: 39.999rem) {
-  html:not(.anon) #topic-footer-buttons .topic-footer-main-buttons #topic-footer-button-owner-toggle .d-button-label {
-    display: inline !important;
-  }
-}
-
-
-/* ===== New outlet-based toggle buttons ===== */
+/* ===== Outlet-based toggle buttons ===== */
 
 /* Desktop: timeline footer controls placement */
 .timeline-footer-controls-outlet.owner-toggle {

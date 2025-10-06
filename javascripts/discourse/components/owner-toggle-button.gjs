@@ -27,10 +27,9 @@ export default class OwnerToggleButton extends Component {
   }
 
   get translatedLabel() {
-    const prefix = "theme_translations.owner_toggle";
     return this.isOwnerFiltered
-      ? i18n(`${prefix}.filtered`)
-      : i18n(`${prefix}.unfiltered`);
+      ? i18n(themePrefix("js.owner_toggle.filtered"))
+      : i18n(themePrefix("js.owner_toggle.unfiltered"));
   }
 
   toggleFilter = () => {
