@@ -164,11 +164,15 @@ export default apiInitializer("1.15.0", (api) => {
       const url = new URL(window.location.href);
       const currentFilter = url.searchParams.get("username_filters");
       const ownerUsername = topic?.details?.created_by?.username;
+      const hasFilteredNotice = !!document.querySelector(".posts-filtered-notice");
 
-      // If any username_filters is present, do not attempt to auto-apply again.
-      // Owner username may not be available yet; we still skip to avoid loops.
-      if (currentFilter) {
-        debugLog("Already server-filtered (some username); marking mode and binding opt-out");
+      // If the page is already filtered (URL param or UI notice), do not re-apply.
+      if (currentFilter || hasFilteredNotice) {
+        debugLog(
+          hasFilteredNotice
+            ? "Already server-filtered (UI notice present); marking mode and binding opt-out"
+            : "Already server-filtered (some username); marking mode and binding opt-out"
+        );
         document.body.dataset.ownerCommentMode = "true";
         bindOptOutClick(topic.id);
         return;
