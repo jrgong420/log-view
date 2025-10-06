@@ -1,6 +1,8 @@
 import { schedule } from "@ember/runloop";
 import { apiInitializer } from "discourse/lib/api";
 
+// Note: `settings` is a global variable provided by Discourse for theme components
+// It contains all theme settings defined in settings.yml
 export default apiInitializer("1.15.0", (api) => {
   const pluginId = "owner-comment-prototype";
   const DEBUG = true; // Set to false to disable debug logging
