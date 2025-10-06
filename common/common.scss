@@ -35,8 +35,7 @@ body:not(.theme-component-access-granted) {
 .owner-toggle-wrapper--mobile {
   display: flex;
   justify-content: center;
-  padding: 0.5rem 1rem;
-  margin-bottom: 0.5rem;
+  padding-right: var(--space-3);
 
   .owner-toggle-button {
     // Make it prominent on mobile
