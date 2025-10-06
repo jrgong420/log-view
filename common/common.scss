@@ -5,6 +5,18 @@
 div.posts-filtered-notice { display: none; }
 
 
+/* ===== Group-based access control ===== */
+/* Hide theme component features when access is not granted */
+/* This is a fallback; shouldRender should prevent rendering entirely */
+body:not(.theme-component-access-granted) {
+  .owner-toggle-button,
+  .timeline-footer-controls-outlet.owner-toggle,
+  .before-topic-progress-outlet.owner-toggle {
+    display: none !important;
+  }
+}
+
+
 /* ===== Outlet-based toggle buttons ===== */
 
 /* Desktop: timeline footer controls placement */

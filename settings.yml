@@ -17,3 +17,39 @@ toggle_view_button_enabled:
   default: true
   description: "Enable/disable the toggle view button"
 
+
+# Group-based access control settings
+group_access_enabled:
+  type: bool
+  default: false
+  description: "Enable group-based access control for this theme component"
+
+
+include_staff:
+  type: bool
+  default: true
+  description: "Allow staff members to access the theme component regardless of group membership"
+
+
+allowed_groups:
+  type: objects
+  default: []
+  schema:
+    name: group_rule
+    properties:
+      groups:
+        type: groups
+        required: true
+        validations:
+          min: 1
+  description: "Select groups that are allowed to access this theme component's features"
+
+
+behavior_for_anonymous:
+  type: enum
+  default: deny
+  choices:
+    - deny
+    - allow
+  description: "How to handle anonymous (logged-out) users"
+
