@@ -1,6 +1,6 @@
 import { schedule } from "@ember/runloop";
 import { apiInitializer } from "discourse/lib/api";
-import DiscourseURL from "discourse/lib/url";
+// import DiscourseURL from "discourse/lib/url";
 
 // Note: `settings` is a global variable provided by Discourse for theme components
 // It contains all theme settings defined in settings.yml
@@ -77,14 +77,9 @@ export default apiInitializer("1.15.0", (api) => {
 
     debugLog("Navigating to server-filtered URL:", url.toString());
 
-    // Use SPA route if available, otherwise hard replace
-    try {
-      DiscourseURL.routeTo(url.toString());
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn("[Owner Comments] SPA routeTo failed, falling back to hard replace", e);
-      window.location.replace(url.toString());
-    }
+    // Force a full navigation so the server builds the filtered TopicView
+    // This ensures filtered data is preloaded and avoids SPA param parsing issues
+    window.location.replace(url.toString());
 
     return false; // We triggered navigation; current handler can stop further work
   }
