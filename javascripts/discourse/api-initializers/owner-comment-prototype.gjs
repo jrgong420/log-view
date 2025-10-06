@@ -1,5 +1,6 @@
 import { schedule } from "@ember/runloop";
 import { apiInitializer } from "discourse/lib/api";
+import { i18n } from "discourse-i18n";
 
 // Note: `settings` is a global variable provided by Discourse for theme components
 // It contains all theme settings defined in settings.yml
@@ -144,10 +145,10 @@ export default apiInitializer("1.15.0", (api) => {
     icon() {
       return isOwnerFiltered(this.topic) ? "toggle-on" : "toggle-off";
     },
-    label() {
+    translatedLabel() {
       return isOwnerFiltered(this.topic)
-        ? "owner_toggle.filtered"
-        : "owner_toggle.unfiltered";
+        ? i18n("owner_toggle.filtered")
+        : i18n("owner_toggle.unfiltered");
     },
     dropdown() {
       // Show in mobile dropdown, inline on desktop
