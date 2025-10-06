@@ -28,3 +28,11 @@ div.posts-filtered-notice { display: none; }
     left: 1rem;
   }
 }
+
+
+/* Ensure label text is visible on mobile for the owner-toggle button */
+@media screen and (width < 768px) {
+  #topic-footer-button-owner-toggle .d-button-label {
+    display: inline; /* override potential core mobile rule that hides labels */
+  }
+}

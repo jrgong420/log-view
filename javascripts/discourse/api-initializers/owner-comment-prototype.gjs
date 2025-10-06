@@ -147,8 +147,8 @@ export default apiInitializer("1.15.0", (api) => {
     },
     translatedLabel() {
       return isOwnerFiltered(this.topic)
-        ? i18n("owner_toggle.filtered")
-        : i18n("owner_toggle.unfiltered");
+        ? i18n(themePrefix("owner_toggle.filtered"))
+        : i18n(themePrefix("owner_toggle.unfiltered"));
     },
     // Always show inline (not in dropdown) so we can position it with CSS
     dropdown: false,
