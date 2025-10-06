@@ -6,3 +6,7 @@ en:
   js:
     owner_comments:
       filtered_notice: "Viewing only posts by topic owner"
+
+    owner_toggle:
+      unfiltered: "Thema"
+      filtered: "Growreport"

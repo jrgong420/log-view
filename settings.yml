@@ -17,12 +17,3 @@ toggle_view_button_enabled:
   default: true
   description: "Enable/disable the toggle view button"
 
-toggle_label_unfiltered:
-  type: text
-  default: "Thema"
-  description: "Button label when topic is in regular (unfiltered) view"
-
-toggle_label_filtered:
-  type: text
-  default: "Growreport"
-  description: "Button label when topic is in filtered (owner-only) view"

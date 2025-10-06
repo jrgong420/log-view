@@ -1,6 +1,6 @@
 import { schedule } from "@ember/runloop";
 import { apiInitializer } from "discourse/lib/api";
-// import DiscourseURL from "discourse/lib/url";
+import { i18n } from "discourse-i18n";
 
 // Note: `settings` is a global variable provided by Discourse for theme components
 // It contains all theme settings defined in settings.yml
@@ -147,8 +147,8 @@ export default apiInitializer("1.15.0", (api) => {
     },
     translatedLabel() {
       return isOwnerFiltered(this.topic)
-        ? settings.toggle_label_filtered
-        : settings.toggle_label_unfiltered;
+        ? i18n("owner_toggle.filtered")
+        : i18n("owner_toggle.unfiltered");
     },
     displayed() {
       return settings.toggle_view_button_enabled && !!this.topic;
@@ -237,13 +237,13 @@ export default apiInitializer("1.15.0", (api) => {
       const hasFilteredNotice = !!document.querySelector(".posts-filtered-notice");
 
 
-	      // One-shot per-topic opt-out (set when user toggles to unfiltered)
-	      if (isOptOut(topic.id)) {
-	        debugLog("Opt-out present; skipping auto-filter once for this topic");
-	        clearOptOut(topic.id);
-	        clearOwnerFilter();
-	        return;
-	      }
+      // One-shot per-topic opt-out (set when user toggles to unfiltered)
+      if (isOptOut(topic.id)) {
+        debugLog("Opt-out present; skipping auto-filter once for this topic");
+        clearOptOut(topic.id);
+        clearOwnerFilter();
+        return;
+      }
 
       // If the page is already filtered (URL param or UI notice), do not re-apply.
       if (currentFilter || hasFilteredNotice) {
@@ -257,20 +257,20 @@ export default apiInitializer("1.15.0", (api) => {
         return;
       }
 
-	      // One-shot suppression after user opted out: skip auto-filter for this view only
-	      if (suppressNextAutoFilter) {
-	        if (topic.id === suppressedTopicId) {
-	          debugLog("One-shot suppression active; skipping auto-filter for this view");
-	          suppressNextAutoFilter = false;
-	          suppressedTopicId = null;
-	          clearOwnerFilter();
-	          return;
-	        } else {
-	          // Topic changed unexpectedly; clear the suppression
-	          suppressNextAutoFilter = false;
-	          suppressedTopicId = null;
-	        }
-	      }
+      // One-shot suppression after user opted out: skip auto-filter for this view only
+      if (suppressNextAutoFilter) {
+        if (topic.id === suppressedTopicId) {
+          debugLog("One-shot suppression active; skipping auto-filter for this view");
+          suppressNextAutoFilter = false;
+          suppressedTopicId = null;
+          clearOwnerFilter();
+          return;
+        } else {
+          // Topic changed unexpectedly; clear the suppression
+          suppressNextAutoFilter = false;
+          suppressedTopicId = null;
+        }
+      }
 
 
       if (settings.auto_mode === false) {
