@@ -11,6 +11,18 @@ Sources (highly recommended):
 - JS Plugin API (plugin-api.gjs)
 
 ---
+## 2025 Platform Updates (dev-news)
+
+- Inline script tags in themes are deprecated and scheduled for removal. Do not use `<script type="text/discourse-plugin">` or `<script type="text/x-handlebars">`. Move code into file-based JS under `javascripts/discourse/api-initializers/*.gjs` and use `.gjs`/`.hbs` components/connectors.
+- Widget rendering system is reaching end-of-life (Q4 2025 default disable). Do not use `createWidget`, `decorateWidget`, `changeWidgetSetting`, `reopenWidget`, `attachWidgetAction`, or `MountWidget`. Migrate to Glimmer components and plugin outlets.
+- Post stream modernization: Prefer plugin outlets (`api.renderBeforeWrapperOutlet` / `api.renderAfterWrapperOutlet`) and value transformers. Avoid modifying `.gjs` components with `api.modifyClass` unless explicitly supported by Core.
+- Template overrides removal: Do not override core templates. Use wrapper plugin outlets instead of template overrides.
+- Post attributes: Use `api.addTrackedPostProperties(...)` instead of `api.includePostAttributes(...)`.
+- Verification: Test with `glimmer_post_stream_mode=auto`; resolve any console deprecations/warnings before release.
+- Themeable site settings: If you need to flip Core UI settings per-theme, use `about.json` → `"theme_site_settings"`. Intended for UI-only toggles.
+
+---
+
 
 ## 1) Theme Component Structure Requirements
 

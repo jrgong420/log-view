@@ -125,20 +125,17 @@ export default apiInitializer("1.15.0", (api) => {
         return;
       }
 
-      const settings = api.container.lookup("service:site-settings");
-      debugLog("Site settings service:", settings);
+      // Access theme settings directly via the global settings object
+      debugLog("Theme settings:", settings);
 
-      const themeSettings = settings?.theme_settings;
-      debugLog("Theme settings:", themeSettings);
-
-      if (!themeSettings) {
+      if (!settings) {
         debugLog("No theme settings found, clearing filter");
         clearOwnerFilter();
         return;
       }
 
       // Check if this topic's category is enabled for owner comments
-      if (isCategoryEnabled(topic, themeSettings)) {
+      if (isCategoryEnabled(topic, settings)) {
         debugLog("Category is enabled, applying filter");
         applyOwnerFilter(topic);
       } else {
