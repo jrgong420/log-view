@@ -56,6 +56,78 @@ Notes:
   - Direct DOM manipulation where an outlet/component/initializer exists
 - Prefer Ember/discourse patterns (components, services, plugin API hooks) over ad‑hoc scripts
 
+### Using Plugin Outlets
+
+Plugin outlets are extension points in Discourse templates where you can inject custom content. They are the preferred way to add UI elements to Discourse.
+
+**Finding Outlets**:
+- Search Discourse core for `<PluginOutlet @name="outlet-name"`
+- Use the [Plugin Outlet Locations](https://meta.discourse.org/t/plugin-outlet-locations-theme-component/100673) theme component
+- Check GitHub: https://github.com/discourse/discourse
+
+**Creating Connectors**:
+
+1. **Directory structure**:
+   ```
+   javascripts/discourse/connectors/
+   └── {outlet-name}/
+       ├── {connector-name}.gjs  (component file)
+       └── {connector-name}.hbs  (template-only, optional)
+   ```
+
+2. **Basic connector component** (`.gjs`):
+   ```javascript
+   import Component from "@glimmer/component";
+
+   export default class MyConnector extends Component {
+     <template>
+       <div class="my-custom-content">
+         {{@outletArgs.model.title}}
+       </div>
+     </template>
+   }
+   ```
+
+3. **Conditional rendering with `shouldRender`**:
+   ```javascript
+   import Component from "@glimmer/component";
+   import { getOwner } from "@ember/owner";
+
+   export default class MyConnector extends Component {
+     static shouldRender(outletArgs, helper) {
+       const owner = getOwner(helper);
+       const site = owner.lookup("service:site");
+
+       // Only render on desktop
+       return !site?.mobileView;
+     }
+
+     <template>
+       <div>Desktop only content</div>
+     </template>
+   }
+   ```
+
+4. **Accessing outlet arguments**:
+   - Outlets provide context via `@outletArgs`
+   - Example: `@outletArgs.model`, `@outletArgs.topic`, etc.
+   - Use `{{log @outletArgs}}` in template to inspect available args
+
+**Best Practices**:
+- Use unique connector names to avoid conflicts with other themes/plugins
+- Prefer connectors over template overrides (which are deprecated)
+- Use `shouldRender` for conditional logic instead of wrapping entire template in `{{#if}}`
+- Test on both desktop and mobile if your connector should be device-specific
+
+**Common Outlets**:
+- `topic-above-post-stream` - Above the post stream in topics
+- `topic-above-posts` - Above posts in a topic
+- `before-topic-progress` - Before the topic progress indicator (mobile)
+- `timeline-footer-controls-after` - After timeline footer controls (desktop)
+- `topic-footer-buttons` - In the topic footer button area
+
+**Documentation**: https://meta.discourse.org/t/32727
+
 ---
 
 ## 3) Settings Configuration
@@ -105,6 +177,46 @@ choices:
 - Reference assets in SCSS: `background-image: url($hero);`
 - Localize strings in `locales/en.yml`; in JS/templates use `i18n(themePrefix("key"))`
 - Provide `theme_metadata.description` and `theme_metadata.settings.*` descriptions in locales
+
+### Translation Keys and Labels
+
+**Important**: When using translations with Discourse components, use the correct pattern:
+
+1. **Define translations in `locales/en.yml`**:
+   ```yaml
+   en:
+     js:
+       my_component:
+         button_label: "Click Me"
+   ```
+
+2. **In JavaScript/GJS components**, use `themePrefix()` helper:
+   ```javascript
+   import { i18n } from "discourse-i18n";
+
+   // themePrefix is a global helper automatically injected by Discourse
+   get translatedLabel() {
+     return i18n(themePrefix("js.my_component.button_label"));
+   }
+   ```
+
+3. **With DButton component**, use `@translatedLabel` for already-translated strings:
+   ```gjs
+   <DButton
+     @translatedLabel={{this.translatedLabel}}
+     @action={{this.myAction}}
+   />
+   ```
+
+   Or use `@label` for untranslated keys (DButton will call i18n internally):
+   ```gjs
+   <DButton
+     @label={{themePrefix "js.my_component.button_label"}}
+     @action={{this.myAction}}
+   />
+   ```
+
+**Note**: `themePrefix()` automatically prepends `theme_translations.{theme_id}.` to your key, so you don't need to include it manually.
 
 ---
 

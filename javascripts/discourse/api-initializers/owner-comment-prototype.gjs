@@ -115,60 +115,10 @@ export default apiInitializer("1.15.0", (api) => {
     // This function remains for backward compatibility with earlier logic.
   }
 
-  // --- Toggle helpers and topic footer button registration ---
-  function isOwnerFiltered(topic) {
-    const owner = topic?.details?.created_by?.username;
-    const url = new URL(window.location.href);
-    const current = url.searchParams.get("username_filters");
-    return !!owner && current === owner;
-  }
-
-  function goOwnerFiltered(owner) {
-    if (!owner) { return; }
-    const url = new URL(window.location.href);
-    url.searchParams.set("username_filters", owner);
-    debugLog("Toggle → owner-filtered URL:", url.toString());
-    window.location.replace(url.toString());
-  }
-
-  function goUnfiltered(topicId) {
-    if (topicId) { setOptOut(topicId); } // one-shot opt-out so auto-mode won't immediately re-apply
-    const url = new URL(window.location.href);
-    url.searchParams.delete("username_filters");
-    debugLog("Toggle → unfiltered URL:", url.toString());
-    window.location.replace(url.toString());
-  }
-
-  // Prefer stable, supported placement via Topic Footer Button API
-  api.registerTopicFooterButton({
-    id: "owner-toggle",
-    icon() {
-      return isOwnerFiltered(this.topic) ? "toggle-on" : "toggle-off";
-    },
-    translatedLabel() {
-      return isOwnerFiltered(this.topic)
-        ? i18n(themePrefix("js.owner_toggle.filtered"))
-        : i18n(themePrefix("js.owner_toggle.unfiltered"));
-    },
-    // Always show inline (not in dropdown) so we can position it with CSS
-    dropdown: false,
-    displayed() {
-      return settings.toggle_view_button_enabled && !!this.topic;
-    },
-    classNames: ["owner-toggle-button"],
-    action() {
-      const t = this.topic;
-      const owner = t?.details?.created_by?.username;
-      if (isOwnerFiltered(t)) {
-        goUnfiltered(t?.id);
-      } else {
-        goOwnerFiltered(owner);
-      }
-    },
-    // Re-render on topic change/mobile view change; URL param change implies navigation
-    dependentKeys: ["topic.id", "site.mobileView", "topic.details.created_by.username"],
-    priority: 10
-  });
+  // Toggle button is now rendered via plugin outlet connectors:
+  // - Desktop: timeline-footer-controls-after
+  // - Mobile: before-topic-progress
+  // See: javascripts/discourse/connectors/ and components/owner-toggle-button.gjs
 
 
   // One-shot suppression flags for current view only
