@@ -1,5 +1,6 @@
 import { schedule } from "@ember/runloop";
 import { apiInitializer } from "discourse/lib/api";
+// import DiscourseURL from "discourse/lib/url";
 
 // Note: `settings` is a global variable provided by Discourse for theme components
 // It contains all theme settings defined in settings.yml
@@ -55,53 +56,34 @@ export default apiInitializer("1.15.0", (api) => {
     return isEnabled;
   }
 
-  // Helper function to apply owner filter
-  function applyOwnerFilter(topic) {
-    debugLog("Attempting to apply owner filter for topic:", topic.id);
-
-    if (!topic) {
-      debugLog("No topic provided");
-      return;
-    }
-
-    if (topic.__ownerFilterApplied) {
-      debugLog("Filter already applied to this topic");
-      return;
-    }
-
-    const postStream = topic.postStream;
-    if (!postStream) {
-      debugLog("No postStream found");
-      return;
-    }
-
-    // Only apply if no other filters are active
-    if (postStream.userFilters && postStream.userFilters.length > 0) {
-      debugLog("Other user filters already active:", postStream.userFilters);
-      return;
-    }
-
-    const ownerUsername = topic.details?.created_by?.username;
+  function ensureServerSideFilter(topic) {
+    const ownerUsername = topic?.details?.created_by?.username;
     if (!ownerUsername) {
       debugLog("No owner username found");
-      return;
+      return false;
     }
 
-    debugLog("Applying filter for owner:", ownerUsername);
+    const url = new URL(window.location.href);
+    const currentFilter = url.searchParams.get("username_filters");
 
-    // Mark as applied to prevent duplicate calls
-    topic.__ownerFilterApplied = true;
+    if (currentFilter === ownerUsername) {
+      // Already filtered by owner, mark dataset and continue
+      document.body.dataset.ownerCommentMode = "true";
+      return true;
+    }
 
-    // Apply the participant filter
-    postStream.filterParticipant(ownerUsername);
+    // Preserve the current path and post_number. Only set username_filters.
+    url.searchParams.set("username_filters", ownerUsername);
 
-    // Set body data attribute for CSS scoping
-    document.body.dataset.ownerCommentMode = "true";
+    debugLog("Navigating to server-filtered URL:", url.toString());
 
-    debugLog("✅ Owner filter applied successfully");
+    // Force a full navigation so the server builds the filtered TopicView
+    // This ensures filtered data is preloaded and avoids SPA param parsing issues
+    window.location.replace(url.toString());
+
+    return false; // We triggered navigation; current handler can stop further work
   }
 
-  // Helper function to clear owner filter
   function clearOwnerFilter() {
     debugLog("Clearing owner filter");
     delete document.body.dataset.ownerCommentMode;
@@ -137,15 +119,15 @@ export default apiInitializer("1.15.0", (api) => {
 
       // Check if this topic's category is enabled for owner comments
       if (isCategoryEnabled(topic, settings)) {
-        debugLog("Category is enabled, applying filter");
-        applyOwnerFilter(topic);
+        debugLog("Category is enabled; ensuring server-side filter");
+        const ok = ensureServerSideFilter(topic);
+        if (ok) {
+          // filtered by server; mark dataset for CSS scoping
+          document.body.dataset.ownerCommentMode = "true";
+        }
       } else {
         debugLog("Category not enabled, clearing filter");
         clearOwnerFilter();
-        // Clear the flag if category doesn't match
-        if (topic.__ownerFilterApplied) {
-          delete topic.__ownerFilterApplied;
-        }
       }
     });
   });
