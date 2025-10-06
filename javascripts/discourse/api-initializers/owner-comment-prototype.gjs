@@ -1,5 +1,6 @@
 import { schedule } from "@ember/runloop";
 import { apiInitializer } from "discourse/lib/api";
+import DiscourseURL from "discourse/lib/url";
 
 // Note: `settings` is a global variable provided by Discourse for theme components
 // It contains all theme settings defined in settings.yml
@@ -55,53 +56,112 @@ export default apiInitializer("1.15.0", (api) => {
     return isEnabled;
   }
 
-  // Helper function to apply owner filter
-  function applyOwnerFilter(topic) {
-    debugLog("Attempting to apply owner filter for topic:", topic.id);
-
-    if (!topic) {
-      debugLog("No topic provided");
-      return;
-    }
-
-    if (topic.__ownerFilterApplied) {
-      debugLog("Filter already applied to this topic");
-      return;
-    }
-
-    const postStream = topic.postStream;
-    if (!postStream) {
-      debugLog("No postStream found");
-      return;
-    }
-
-    // Only apply if no other filters are active
-    if (postStream.userFilters && postStream.userFilters.length > 0) {
-      debugLog("Other user filters already active:", postStream.userFilters);
-      return;
-    }
-
-    const ownerUsername = topic.details?.created_by?.username;
-    if (!ownerUsername) {
-      debugLog("No owner username found");
-      return;
-    }
-
-    debugLog("Applying filter for owner:", ownerUsername);
-
-    // Mark as applied to prevent duplicate calls
-    topic.__ownerFilterApplied = true;
-
-    // Apply the participant filter
-    postStream.filterParticipant(ownerUsername);
-
-    // Set body data attribute for CSS scoping
-    document.body.dataset.ownerCommentMode = "true";
-
-    debugLog("✅ Owner filter applied successfully");
+  function getRequestedPostNumberFromPath(pathname) {
+    // Discourse topic URL path: /t/<slug>/<topicId>[/<postNumber>]
+    const parts = pathname.split("/").filter(Boolean);
+    const maybeNumber = parts[parts.length - 1];
+    const num = parseInt(maybeNumber, 10);
+    return Number.isFinite(num) ? num : null;
   }
 
-  // Helper function to clear owner filter
+  function nearestOwnerPostNumber(topic, requested) {
+    const owner = topic?.details?.created_by?.username;
+    const posts = topic?.postStream?.posts || [];
+    let before = null;
+    let after = null;
+
+    for (const p of posts) {
+      if (p?.username !== owner) {
+        continue;
+      }
+      const n = p?.post_number;
+      if (!Number.isFinite(n)) {
+        continue;
+      }
+      if (n <= requested) {
+        if (before === null || n > before) {
+          before = n;
+        }
+      } else {
+        if (after === null || n < after) {
+          after = n;
+        }
+      }
+    }
+
+    // Prefer earlier (to avoid spoilers); otherwise pick next; otherwise null
+    return before ?? after ?? null;
+  }
+
+  function ensureServerSideFilter(topic) {
+    const ownerUsername = topic?.details?.created_by?.username;
+    if (!ownerUsername) {
+      debugLog("No owner username found");
+      return false;
+    }
+
+    const url = new URL(window.location.href);
+    const currentFilter = url.searchParams.get("username_filters");
+
+    if (currentFilter === ownerUsername) {
+      // Already filtered by owner, mark dataset and continue
+      document.body.dataset.ownerCommentMode = "true";
+      return true;
+    }
+
+    // Decide landing post number
+    const requested = getRequestedPostNumberFromPath(url.pathname);
+    let targetPostNumber = requested;
+
+    // If requested post isn't by owner, try to find a nearby owner post from loaded posts
+    if (requested) {
+      const posts = topic?.postStream?.posts || [];
+      const requestedPost = posts.find((p) => p?.post_number === requested);
+      if (!requestedPost || requestedPost?.username !== ownerUsername) {
+        const nearest = nearestOwnerPostNumber(topic, requested);
+        if (nearest) {
+          targetPostNumber = nearest;
+        } else {
+          // Fallback: drop explicit post number to land at start of filtered stream
+          targetPostNumber = null;
+        }
+      }
+    }
+
+    // Build filtered URL
+    const baseParts = url.pathname.split("/").filter(Boolean);
+    // Ensure we have at least ["t", slug, topicId]
+    const topicId = String(topic.id);
+    const slugIndex = baseParts.findIndex((p) => p === "t");
+    let basePath;
+    if (slugIndex >= 0 && baseParts.length >= slugIndex + 3) {
+      basePath = `/${baseParts.slice(0, slugIndex + 3).join("/")}`;
+    } else {
+      // Fallback to canonical
+      basePath = `/t/${topic.slug}/${topicId}`;
+    }
+
+    const newPath = targetPostNumber
+      ? `${basePath}/${targetPostNumber}`
+      : basePath;
+
+    const newUrl = new URL(url.origin + newPath + url.hash);
+    newUrl.searchParams.set("username_filters", ownerUsername);
+
+    debugLog("Navigating to server-filtered URL:", newUrl.toString());
+
+    // Use SPA route if available, otherwise hard replace
+    try {
+      DiscourseURL.routeTo(newUrl.toString());
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn("[Owner Comments] SPA routeTo failed, falling back to hard replace", e);
+      window.location.replace(newUrl.toString());
+    }
+
+    return false; // We triggered navigation; current handler can stop further work
+  }
+
   function clearOwnerFilter() {
     debugLog("Clearing owner filter");
     delete document.body.dataset.ownerCommentMode;
@@ -137,15 +197,15 @@ export default apiInitializer("1.15.0", (api) => {
 
       // Check if this topic's category is enabled for owner comments
       if (isCategoryEnabled(topic, settings)) {
-        debugLog("Category is enabled, applying filter");
-        applyOwnerFilter(topic);
+        debugLog("Category is enabled; ensuring server-side filter");
+        const ok = ensureServerSideFilter(topic);
+        if (ok) {
+          // filtered by server; mark dataset for CSS scoping
+          document.body.dataset.ownerCommentMode = "true";
+        }
       } else {
         debugLog("Category not enabled, clearing filter");
         clearOwnerFilter();
-        // Clear the flag if category doesn't match
-        if (topic.__ownerFilterApplied) {
-          delete topic.__ownerFilterApplied;
-        }
       }
     });
   });
