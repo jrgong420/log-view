@@ -1,27 +1,20 @@
 # Owner-Comments Theme Component Prototype
 
 ## User Perspective
-- Prototype theme component should auto-filter topics in configured categories to show only the topic owner's posts, expanding initial inline comments for a "comments" view.
-- Per-request acceptance of UI-only enforcement: hiding the regular reply button via CSS is acceptable, acknowledging alternate posting methods still work.
-- Expectation that first three replies under owner posts appear automatically while keeping the native “Show all replies” controls.
-- Requires straightforward category scoping, adjustable preload count, minimal maintenance effort, and references to core files for context (`app/assets/javascripts/discourse/app/models/post-stream.js:256`, `app/assets/javascripts/discourse/app/components/post.gjs:215`, `600`).
+- Theme component auto-filters topics in configured categories to show only the topic owner's posts for a journal/comments view.
+- UI-only enforcement is acceptable (e.g., optional CSS tweaks), acknowledging alternate posting methods still work.
+- Requires straightforward category scoping and minimal maintenance.
 
 ## Feature States
-- **Inactive**: Topic not in configured categories or a filter is already active; component takes no action.
-- **Activating**: Topic loads, category matches; component calls `topic.postStream.filterParticipant(ownerUsername)` and sets `document.body.dataset.ownerCommentMode = "true"`.
-- **Prefetching**: Owner posts detected; theme loops `loadMoreReplies()` to fetch up to the configured preload count.
-- **Ready**: Owner posts display preloaded replies; “Show all replies” and collapse controls operate normally; topic-level reply button hidden via CSS for non-owners.
-- **Exit**: Navigating away or category mismatch clears body dataset and skips further hooks.
+- Inactive: Topic not in configured categories or a filter is already active; component takes no action.
+- Active: Topic loads, category matches; component calls `topic.postStream.filterParticipant(ownerUsername)` and sets `document.body.dataset.ownerCommentMode = "true"`.
+- Exit: Navigating away or category mismatch clears body dataset and skips further hooks.
 
 ## Theme Component Settings (`/common/settings.yml`)
 ```yaml
 owner_comment_categories:
   type: list
   description: "Category slugs or IDs that auto-filter by topic owner"
-owner_comment_prefetch:
-  default: 3
-  min: 0
-  description: "Number of replies to expand under each owner post"
 ```
 Optional future flags: `show_info_banner`, `highlight_comments` (disabled by default).
 
@@ -39,11 +32,6 @@ Optional future flags: `show_info_banner`, `highlight_comments` (disabled by def
    - If category matches settings and `topic.postStream.userFilters.length === 0`, call `topic.postStream.filterParticipant(ownerUsername)` (see `app/assets/javascripts/discourse/app/models/post-stream.js:256-267`).
    - Debounce with a `topic.__ownerFilterApplied` flag; set `document.body.dataset.ownerCommentMode` accordingly.
 
-3. **Reply Prefetch Logic**
-   - `api.modifyClass("component:post", { pluginId: "owner-comment-prototype", async didReceiveAttrs() { ... } })`.
-   - Conditions: `this.args.post.topicOwner` is true, owner filter active, category allowed.
-   - Loop `await this.loadMoreReplies()` (defined in `app/assets/javascripts/discourse/app/components/post.gjs:215-235`) while `this.repliesBelow.length < Math.min(this.args.post.reply_count, settings.owner_comment_prefetch)` and `this.canLoadMoreRepliesBelow` remains true.
-   - Guard with `this.__ownerPrefetching` to avoid concurrent requests. Embedded markup already at `post.gjs:600-666` renders replies.
 
 4. **UI Adjustments**
    - Scope CSS with `body[data-owner-comment-mode="true"]`:
