@@ -4,7 +4,6 @@ import { apiInitializer } from "discourse/lib/api";
 // Note: `settings` is a global variable provided by Discourse for theme components
 // It contains all theme settings defined in settings.yml
 export default apiInitializer("1.15.0", (api) => {
-  const pluginId = "owner-comment-prototype";
   const DEBUG = true; // Set to false to disable debug logging
 
   function debugLog(...args) {
@@ -151,104 +150,5 @@ export default apiInitializer("1.15.0", (api) => {
     });
   });
 
-  // Modify the post component to auto-expand replies under owner posts
-  api.modifyClass("component:post", {
-    pluginId,
-
-    async didReceiveAttrs() {
-      this._super(...arguments);
-
-      const post = this.args?.post;
-
-      // Only proceed if this is an owner post
-      if (!post?.topicOwner) {
-        return;
-      }
-
-      debugLog("Processing owner post:", post.id);
-
-      // Check if owner comment mode is active
-      if (document.body.dataset.ownerCommentMode !== "true") {
-        debugLog("Owner comment mode not active, skipping prefetch");
-        return;
-      }
-
-      // Access theme settings from global settings variable
-      if (!settings || !settings.owner_comment_prefetch) {
-        debugLog("No theme settings found in post component");
-        return;
-      }
-
-      const prefetchCount = parseInt(settings.owner_comment_prefetch, 10);
-      debugLog("Prefetch count setting:", prefetchCount);
-
-      if (isNaN(prefetchCount) || prefetchCount <= 0) {
-        debugLog("Prefetch disabled or invalid");
-        return;
-      }
-
-      // Guard against concurrent prefetching
-      if (this.__ownerPrefetching) {
-        debugLog("Already prefetching for this post");
-        return;
-      }
-
-      // Check if we need to load more replies
-      const currentReplyCount = this.repliesBelow?.length || 0;
-      const targetReplyCount = Math.min(post.reply_count || 0, prefetchCount);
-
-      debugLog(
-        "Reply counts - Current:",
-        currentReplyCount,
-        "Target:",
-        targetReplyCount,
-        "Total:",
-        post.reply_count
-      );
-
-      if (currentReplyCount >= targetReplyCount) {
-        debugLog("Already have enough replies loaded");
-        return;
-      }
-
-      // Start prefetching
-      debugLog("Starting reply prefetch...");
-      this.__ownerPrefetching = true;
-
-      try {
-        let iterations = 0;
-        const maxIterations = 10; // Safety limit
-
-        // Loop to load replies until we reach the target count
-        while (
-          (this.repliesBelow?.length || 0) < targetReplyCount &&
-          this.canLoadMoreRepliesBelow &&
-          iterations < maxIterations
-        ) {
-          debugLog(
-            `Loading more replies (iteration ${iterations + 1})...`
-          );
-          await this.loadMoreReplies();
-          iterations++;
-        }
-
-        debugLog(
-          `✅ Prefetch complete. Loaded ${this.repliesBelow?.length || 0} replies`
-        );
-      } catch (error) {
-        debugLog("❌ Error prefetching replies:", error);
-        // eslint-disable-next-line no-console
-        console.error("[Owner Comments] Error prefetching replies:", error);
-      } finally {
-        this.__ownerPrefetching = false;
-      }
-    },
-
-    willDestroy() {
-      this._super(...arguments);
-      // Clean up prefetching flag
-      delete this.__ownerPrefetching;
-    },
-  });
 });
 
