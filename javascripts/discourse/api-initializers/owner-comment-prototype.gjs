@@ -56,32 +56,26 @@ export default apiInitializer("1.15.0", (api) => {
     return isEnabled;
   }
 
-  function ensureServerSideFilter(topic) {
-    const ownerUsername = topic?.details?.created_by?.username;
-    if (!ownerUsername) {
-      debugLog("No owner username found");
-      return false;
-    }
-
+  function ensureServerSideFilter(_topic) {
+    // Navigate using the special token 'owner' so server determines the username
     const url = new URL(window.location.href);
     const currentFilter = url.searchParams.get("username_filters");
 
-    if (currentFilter === ownerUsername) {
-      // Already filtered by owner, mark dataset and continue
+    if (currentFilter === "owner") {
+      // Already filtered by owner token; mark and continue
       document.body.dataset.ownerCommentMode = "true";
       return true;
     }
 
-    // Preserve the current path and post_number. Only set username_filters.
-    url.searchParams.set("username_filters", ownerUsername);
+    // Preserve current path/post_number; only set the filter token
+    url.searchParams.set("username_filters", "owner");
 
     debugLog("Navigating to server-filtered URL:", url.toString());
 
     // Force a full navigation so the server builds the filtered TopicView
-    // This ensures filtered data is preloaded and avoids SPA param parsing issues
     window.location.replace(url.toString());
 
-    return false; // We triggered navigation; current handler can stop further work
+    return false; // We triggered navigation; stop further work in this cycle
   }
 
   function clearOwnerFilter() {
@@ -166,8 +160,10 @@ export default apiInitializer("1.15.0", (api) => {
       const currentFilter = url.searchParams.get("username_filters");
       const ownerUsername = topic?.details?.created_by?.username;
 
-      if (currentFilter && ownerUsername && currentFilter === ownerUsername) {
-        debugLog("Already server-filtered by owner; marking mode and binding opt-out");
+      // If any username_filters is present, do not attempt to auto-apply again.
+      // Owner username may not be available yet; we still skip to avoid loops.
+      if (currentFilter) {
+        debugLog("Already server-filtered (some username); marking mode and binding opt-out");
         document.body.dataset.ownerCommentMode = "true";
         bindOptOutClick(topic.id);
         return;
