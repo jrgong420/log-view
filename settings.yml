@@ -4,3 +4,8 @@ owner_comment_categories:
   default: ""
   description: "Categories where topics will auto-filter to show only the topic owner's posts"
 
+
+auto_mode:
+  type: bool
+  default: true
+  description: "Automatically enable owner-only filtered view in enabled categories"
