@@ -173,9 +173,8 @@ export default apiInitializer("1.15.0", (api) => {
         return;
       }
 
-      // Get theme settings
-      const settings = this.siteSettings?.theme_settings;
-      if (!settings) {
+      // Access theme settings from global settings variable
+      if (!settings || !settings.owner_comment_prefetch) {
         debugLog("No theme settings found in post component");
         return;
       }
