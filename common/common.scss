@@ -7,7 +7,7 @@ div.posts-filtered-notice { display: none; }
 
 /* Fixed owner-toggle button at bottom of viewport */
 // Button is always inline (not in dropdown), so we can position it freely
-.topic-footer-buttons #topic-footer-button-owner-toggle {
+#topic-footer-button-owner-toggle {
   position: fixed;
   z-index: 100;
   background: var(--secondary);
