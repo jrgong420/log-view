@@ -11,7 +11,20 @@ import { i18n } from "discourse-i18n";
 export default class OwnerToggleButton extends Component {
   @service router;
 
-  get topic() {
+  toggleFilter = () => {
+    const topic = this.topic;
+    const owner = topic?.details?.created_by?.username;
+
+    if (this.isOwnerFiltered) {
+      // Go to unfiltered view
+      this.goUnfiltered(topic?.id);
+    } else {
+      // Go to owner-filtered view
+      this.goOwnerFiltered(owner);
+    }
+  };
+
+get topic() {
     return this.args.topic;
   }
 
@@ -32,18 +45,7 @@ export default class OwnerToggleButton extends Component {
       : i18n(themePrefix("js.owner_toggle.unfiltered"));
   }
 
-  toggleFilter = () => {
-    const topic = this.topic;
-    const owner = topic?.details?.created_by?.username;
 
-    if (this.isOwnerFiltered) {
-      // Go to unfiltered view
-      this.goUnfiltered(topic?.id);
-    } else {
-      // Go to owner-filtered view
-      this.goOwnerFiltered(owner);
-    }
-  };
 
   goOwnerFiltered(owner) {
     if (!owner) {
