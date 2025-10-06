@@ -2,10 +2,10 @@ import { apiInitializer } from "discourse/lib/api";
 
 /**
  * Group-based access control for theme component.
- * 
+ *
  * This initializer checks if the current user belongs to the configured
  * allowed groups and adds a body class to enable/disable theme features.
- * 
+ *
  * Settings used:
  * - group_access_enabled: master switch for group gating
  * - include_staff: allow staff regardless of group membership

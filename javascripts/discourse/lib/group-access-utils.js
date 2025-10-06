@@ -11,7 +11,6 @@
 export function isUserAllowedAccess(helper) {
   const owner = helper.owner || helper;
   const currentUser = owner.lookup("service:current-user")?.user;
-  const siteSettings = owner.lookup("service:site-settings");
 
   // Get theme settings from the global settings object
   // Note: In connectors, we need to access settings differently

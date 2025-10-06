@@ -6,7 +6,9 @@ div.posts-filtered-notice { display: none; }
 
 
 /* ===== Group-based access control ===== */
+
 /* Hide theme component features when access is not granted */
+
 /* This is a fallback; shouldRender should prevent rendering entirely */
 body:not(.theme-component-access-granted) {
   .owner-toggle-button,
@@ -40,7 +42,7 @@ body:not(.theme-component-access-granted) {
   .owner-toggle-button {
     // Make it prominent on mobile
     padding: 0.75rem 1.25rem;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 4px rgb(0, 0, 0, 0.1);
     border-radius: 4px;
 
     // Ensure label is visible on mobile
@@ -62,6 +64,6 @@ body:not(.theme-component-access-granted) {
 
   &:hover {
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 2px 8px rgb(0, 0, 0, 0.15);
   }
 }

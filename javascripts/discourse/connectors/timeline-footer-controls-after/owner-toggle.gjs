@@ -1,6 +1,6 @@
 import Component from "@glimmer/component";
-import { service } from "@ember/service";
 import { getOwner } from "@ember/owner";
+import { service } from "@ember/service";
 import OwnerToggleButton from "../../components/owner-toggle-button";
 import { isUserAllowedAccess } from "../../lib/group-access-utils";
 
@@ -9,10 +9,8 @@ import { isUserAllowedAccess } from "../../lib/group-access-utils";
  * Only shows on desktop when timeline is present and when user has access.
  */
 export default class TimelineOwnerToggle extends Component {
-  @service site;
-
   // Only render on desktop view and if user has group access
-  static shouldRender(outletArgs, helper) {
+static shouldRender(outletArgs, helper) {
     const owner = getOwner(helper);
     const site = owner.lookup("service:site");
 
@@ -24,6 +22,11 @@ export default class TimelineOwnerToggle extends Component {
     // Check group-based access control
     return isUserAllowedAccess(helper);
   }
+
+@service site;
+
+
+
 
   <template>
     <OwnerToggleButton @topic={{@outletArgs.model}} />
