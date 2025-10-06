@@ -56,19 +56,24 @@ export default apiInitializer("1.15.0", (api) => {
     return isEnabled;
   }
 
-  function ensureServerSideFilter(_topic) {
-    // Navigate using the special token 'owner' so server determines the username
+  function ensureServerSideFilter(topic) {
+    const ownerUsername = topic?.details?.created_by?.username;
+    if (!ownerUsername) {
+      debugLog("Owner username not yet available; skip navigation this cycle");
+      return false;
+    }
+
     const url = new URL(window.location.href);
     const currentFilter = url.searchParams.get("username_filters");
 
-    if (currentFilter === "owner") {
-      // Already filtered by owner token; mark and continue
+    if (currentFilter === ownerUsername) {
+      // Already filtered by owner; mark and continue
       document.body.dataset.ownerCommentMode = "true";
       return true;
     }
 
-    // Preserve current path/post_number; only set the filter token
-    url.searchParams.set("username_filters", "owner");
+    // Preserve current path/post_number; only set the filter username
+    url.searchParams.set("username_filters", ownerUsername);
 
     debugLog("Navigating to server-filtered URL:", url.toString());
 
