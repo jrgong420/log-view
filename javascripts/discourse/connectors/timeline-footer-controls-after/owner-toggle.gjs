@@ -2,20 +2,28 @@ import Component from "@glimmer/component";
 import { getOwner } from "@ember/owner";
 import { service } from "@ember/service";
 import OwnerToggleButton from "../../components/owner-toggle-button";
-import { isUserAllowedAccess } from "../../lib/group-access-utils";
+import {
+  isUserAllowedAccess,
+  shouldShowToggleButton,
+} from "../../lib/group-access-utils";
 
 /**
  * Desktop connector: renders toggle button in timeline footer controls.
- * Only shows on desktop when timeline is present and when user has access.
+ * Only shows on desktop, in configured categories, and when user has access.
  */
 export default class TimelineOwnerToggle extends Component {
-  // Only render on desktop view and if user has group access
-static shouldRender(outletArgs, helper) {
+  // Only render on desktop view, in enabled categories, and if user has group access
+  static shouldRender(outletArgs, helper) {
     const owner = getOwner(helper);
     const site = owner.lookup("service:site");
 
     // Check desktop view
     if (site?.mobileView) {
+      return false;
+    }
+
+    // Check if toggle button is enabled and category is configured
+    if (!shouldShowToggleButton(outletArgs)) {
       return false;
     }
 
