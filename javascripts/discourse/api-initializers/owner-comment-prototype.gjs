@@ -1,6 +1,5 @@
 import { schedule } from "@ember/runloop";
 import { apiInitializer } from "discourse/lib/api";
-import { i18n } from "discourse-i18n";
 
 // Note: `settings` is a global variable provided by Discourse for theme components
 // It contains all theme settings defined in settings.yml
@@ -92,11 +91,6 @@ export default apiInitializer("1.15.0", (api) => {
   const OPT_OUT_PREFIX = "ownerCommentsOptOut:";
   function optOutKey(topicId) {
     return `${OPT_OUT_PREFIX}${topicId}`;
-  }
-  function setOptOut(topicId) {
-    try {
-      sessionStorage.setItem(optOutKey(topicId), "1");
-    } catch {}
   }
   function isOptOut(topicId) {
     try {

@@ -26,10 +26,6 @@ class BaseOwnerToggle extends Component {
 }
 
 class TimelineOwnerToggle extends BaseOwnerToggle {
-  get wrapperClass() {
-    return "owner-toggle-wrapper owner-toggle-wrapper--timeline";
-  }
-
   static shouldRender(outletArgs, helper) {
     if (!shouldShowToggleButton(outletArgs)) {
       return false;
@@ -44,13 +40,13 @@ class TimelineOwnerToggle extends BaseOwnerToggle {
 
     return !!site && !site.mobileView;
   }
+
+  get wrapperClass() {
+    return "owner-toggle-wrapper owner-toggle-wrapper--timeline";
+  }
 }
 
 class MobileOwnerToggle extends BaseOwnerToggle {
-  get wrapperClass() {
-    return "owner-toggle-wrapper owner-toggle-wrapper--mobile";
-  }
-
   static shouldRender(outletArgs, helper) {
     if (!shouldShowToggleButton(outletArgs)) {
       return false;
@@ -64,6 +60,10 @@ class MobileOwnerToggle extends BaseOwnerToggle {
     const site = owner?.lookup?.("service:site");
 
     return !!site && site.mobileView;
+  }
+
+  get wrapperClass() {
+    return "owner-toggle-wrapper owner-toggle-wrapper--mobile";
   }
 }
 
