@@ -152,16 +152,36 @@ export default apiInitializer("1.15.0", (api) => {
   });
 
   // Modify the post component to auto-expand replies under owner posts
-  api.modifyClass("component:post", {
+  api.modifyClass("component:post-stream/post", {
     pluginId,
+
+    didInsertElement() {
+      this._super(...arguments);
+      debugLog("post-stream/post didInsertElement fired");
+      try {
+        this.tryPrefetchReplies?.();
+      } catch (e) {
+        debugLog("Prefetch error in didInsertElement:", e);
+      }
+    },
 
     async didReceiveAttrs() {
       this._super(...arguments);
+      debugLog("post-stream/post didReceiveAttrs fired");
+      if (typeof this.tryPrefetchReplies === "function") {
+        await this.tryPrefetchReplies();
+      }
+    },
 
-      const post = this.args?.post;
+    async tryPrefetchReplies() {
+      const post = this.args?.post || this.post;
+      if (!post) {
+        debugLog("No post found on component args/state");
+        return;
+      }
 
       // Only proceed if this is an owner post
-      if (!post?.topicOwner) {
+      if (!post.topicOwner) {
         return;
       }
 
@@ -174,15 +194,10 @@ export default apiInitializer("1.15.0", (api) => {
       }
 
       // Access theme settings from global settings variable
-      if (!settings || !settings.owner_comment_prefetch) {
-        debugLog("No theme settings found in post component");
-        return;
-      }
-
-      const prefetchCount = parseInt(settings.owner_comment_prefetch, 10);
+      const prefetchCount = parseInt(settings?.owner_comment_prefetch, 10);
       debugLog("Prefetch count setting:", prefetchCount);
 
-      if (isNaN(prefetchCount) || prefetchCount <= 0) {
+      if (!prefetchCount || isNaN(prefetchCount) || prefetchCount <= 0) {
         debugLog("Prefetch disabled or invalid");
         return;
       }
@@ -222,19 +237,30 @@ export default apiInitializer("1.15.0", (api) => {
         // Loop to load replies until we reach the target count
         while (
           (this.repliesBelow?.length || 0) < targetReplyCount &&
-          this.canLoadMoreRepliesBelow &&
           iterations < maxIterations
         ) {
-          debugLog(
-            `Loading more replies (iteration ${iterations + 1})...`
-          );
-          await this.loadMoreReplies();
+          if (typeof this.loadMoreReplies === "function" && this.canLoadMoreRepliesBelow) {
+            debugLog(`Calling loadMoreReplies (iteration ${iterations + 1})...`);
+            await this.loadMoreReplies();
+          } else {
+            // Fallback: click the expand/hidden replies toggle in DOM
+            const btn =
+              this.element?.querySelector(
+                ".toggle-replies, .more-replies, .expand-hidden, .show-replies, .collapsed-replies .toggle-replies"
+              );
+            if (btn) {
+              debugLog(`Clicking replies toggle (iteration ${iterations + 1})...`);
+              btn.click();
+              await new Promise((r) => setTimeout(r, 150));
+            } else {
+              debugLog("No replies toggle button found for this post");
+              break;
+            }
+          }
           iterations++;
         }
 
-        debugLog(
-          `✅ Prefetch complete. Loaded ${this.repliesBelow?.length || 0} replies`
-        );
+        debugLog(`✅ Prefetch complete. Loaded ${this.repliesBelow?.length || 0} replies`);
       } catch (error) {
         debugLog("❌ Error prefetching replies:", error);
         // eslint-disable-next-line no-console
