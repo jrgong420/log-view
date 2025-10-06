@@ -5,34 +5,26 @@
 div.posts-filtered-notice { display: none; }
 
 
-/* Sticky owner-toggle button at bottom of viewport on desktop */
-// Only apply fixed positioning when button is inline (not in dropdown)
+/* Fixed owner-toggle button at bottom of viewport */
+// Button is always inline (not in dropdown), so we can position it freely
 .topic-footer-buttons #topic-footer-button-owner-toggle {
-  // Desktop: make only our toggle button sticky at bottom
+  position: fixed;
+  z-index: 100;
+  background: var(--secondary);
+  padding: 0.75rem 1.25rem;
+  box-shadow: 0 2px 12px rgb(0, 0, 0, 0.15);
+  border-radius: 4px;
+  border: 1px solid var(--primary-low);
+
+  // Desktop: bottom-right corner
   @media screen and (width >= 768px) {
-    position: fixed;
     bottom: 1rem;
     right: 1rem;
-    z-index: 100;
-    background: var(--secondary);
-    padding: 0.75rem 1.25rem;
-    box-shadow: 0 2px 12px rgb(0, 0, 0, 0.15);
-    border-radius: 4px;
-    border: 1px solid var(--primary-low);
   }
-}
 
-// Ensure button displays properly in mobile dropdown
-.topic-footer-mobile-dropdown {
-  #topic-footer-button-owner-toggle {
-    // Reset any positioning for dropdown context
-    position: static;
-    width: 100%;
-    text-align: left;
+  // Mobile: bottom-left corner
+  @media screen and (width < 768px) {
+    bottom: 1rem;
+    left: 1rem;
   }
-}
-
-// Ensure button has proper styling
-.owner-toggle-button {
-  // Additional button-specific styles if needed
 }

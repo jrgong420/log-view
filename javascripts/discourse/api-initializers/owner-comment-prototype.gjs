@@ -150,10 +150,8 @@ export default apiInitializer("1.15.0", (api) => {
         ? i18n("owner_toggle.filtered")
         : i18n("owner_toggle.unfiltered");
     },
-    dropdown() {
-      // Show in mobile dropdown, inline on desktop
-      return this.site.mobileView;
-    },
+    // Always show inline (not in dropdown) so we can position it with CSS
+    dropdown: false,
     displayed() {
       return settings.toggle_view_button_enabled && !!this.topic;
     },
