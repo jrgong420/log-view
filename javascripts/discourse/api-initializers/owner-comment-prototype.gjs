@@ -132,6 +132,34 @@ export default apiInitializer("1.15.0", (api) => {
     notice.dataset.ownerCommentsBound = "1";
   }
 
+  // Global delegated click listener for opt-out that survives re-renders
+  let optOutDelegationBound = false;
+  if (!optOutDelegationBound) {
+    document.addEventListener(
+      "click",
+      (e) => {
+        const target = e.target?.closest?.(
+          ".posts-filtered-notice button, .posts-filtered-notice a"
+        );
+        if (!target) return;
+        try {
+          const topic = api.container.lookup("controller:topic")?.model;
+          const topicId = topic?.id;
+          if (topicId) {
+            debugLog(
+              "User opted out via filtered notice (delegated); suppressing auto-mode"
+            );
+            setOptOut(topicId);
+          }
+        } catch (err) {
+          // no-op
+        }
+      },
+      true
+    );
+    optOutDelegationBound = true;
+  }
+
   // Hook into page changes to detect topic navigation
   api.onPageChange(() => {
     debugLog("=== Page change detected ===");
