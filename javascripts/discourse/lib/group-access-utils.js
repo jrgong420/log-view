@@ -1,3 +1,5 @@
+import { getOwner } from "@ember/owner";
+
 /**
  * Shared utility for checking group-based access control and category settings.
  * Used by connectors to gate rendering via shouldRender.
@@ -8,9 +10,9 @@
  * @param {Object} helper - The helper object from shouldRender
  * @returns {boolean} true if user is allowed, false otherwise
  */
-export function isUserAllowedAccess(helper) {
-  const owner = helper.owner || helper;
-  const currentUser = owner.lookup("service:current-user")?.user;
+export function isUserAllowedAccess(helper, fallbackContext = null) {
+  const container = resolveOwner(helper) || resolveOwner(fallbackContext);
+  const currentUser = container?.lookup?.("service:current-user")?.user;
 
   // Get theme settings from the global settings object
   // Note: In connectors, settings is available globally (not window.settings)
@@ -49,6 +51,31 @@ export function isUserAllowedAccess(helper) {
   const userGroupIds = userGroups.map((g) => g.id);
 
   return allowedGroupIds.some((allowedId) => userGroupIds.includes(allowedId));
+}
+
+function resolveOwner(context) {
+  if (!context) {
+    return null;
+  }
+
+  if (typeof context.lookup === "function") {
+    return context;
+  }
+
+  if (typeof context.owner?.lookup === "function") {
+    return context.owner;
+  }
+
+  try {
+    const owner = getOwner(context);
+    if (typeof owner?.lookup === "function") {
+      return owner;
+    }
+  } catch {
+    // getOwner throws when context has no owner metadata; ignore.
+  }
+
+  return null;
 }
 
 /**
@@ -127,4 +154,3 @@ function isCategoryEnabled(topic, settings) {
   const topicCategoryId = topic.category_id;
   return enabledCategoryIds.includes(topicCategoryId);
 }
-

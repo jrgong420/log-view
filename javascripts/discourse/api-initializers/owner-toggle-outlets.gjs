@@ -35,7 +35,7 @@ class TimelineOwnerToggle extends BaseOwnerToggle {
       return false;
     }
 
-    if (!isUserAllowedAccess(helper)) {
+    if (!isUserAllowedAccess(helper, outletArgs)) {
       return false;
     }
 
@@ -56,7 +56,7 @@ class MobileOwnerToggle extends BaseOwnerToggle {
       return false;
     }
 
-    if (!isUserAllowedAccess(helper)) {
+    if (!isUserAllowedAccess(helper, outletArgs)) {
       return false;
     }
 
