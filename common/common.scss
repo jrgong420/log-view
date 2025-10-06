@@ -37,3 +37,53 @@ div.posts-filtered-notice { display: none; }
     display: inline !important;
   }
 }
+
+
+/* ===== New outlet-based toggle buttons ===== */
+
+/* Desktop: timeline footer controls placement */
+.timeline-footer-controls-outlet.owner-toggle {
+  margin-left: 0.5rem;
+
+  .owner-toggle-button {
+    // Align with other timeline controls
+    padding: 0.5rem 0.75rem;
+    font-size: var(--font-down-1);
+  }
+}
+
+/* Mobile: before topic progress placement */
+.before-topic-progress-outlet.owner-toggle {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+
+  .owner-toggle-button {
+    // Make it prominent on mobile
+    padding: 0.75rem 1.25rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+
+    // Ensure label is visible on mobile
+    .d-button-label {
+      display: inline !important;
+    }
+  }
+}
+
+/* Common button styling */
+.owner-toggle-button {
+  transition: all 0.2s ease;
+
+  &.filtered {
+    background: var(--tertiary-low);
+    color: var(--tertiary);
+    border-color: var(--tertiary);
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+}
