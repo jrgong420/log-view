@@ -56,43 +56,6 @@ export default apiInitializer("1.15.0", (api) => {
     return isEnabled;
   }
 
-  function getRequestedPostNumberFromPath(pathname) {
-    // Discourse topic URL path: /t/<slug>/<topicId>[/<postNumber>]
-    const parts = pathname.split("/").filter(Boolean);
-    const maybeNumber = parts[parts.length - 1];
-    const num = parseInt(maybeNumber, 10);
-    return Number.isFinite(num) ? num : null;
-  }
-
-  function nearestOwnerPostNumber(topic, requested) {
-    const owner = topic?.details?.created_by?.username;
-    const posts = topic?.postStream?.posts || [];
-    let before = null;
-    let after = null;
-
-    for (const p of posts) {
-      if (p?.username !== owner) {
-        continue;
-      }
-      const n = p?.post_number;
-      if (!Number.isFinite(n)) {
-        continue;
-      }
-      if (n <= requested) {
-        if (before === null || n > before) {
-          before = n;
-        }
-      } else {
-        if (after === null || n < after) {
-          after = n;
-        }
-      }
-    }
-
-    // Prefer earlier (to avoid spoilers); otherwise pick next; otherwise null
-    return before ?? after ?? null;
-  }
-
   function ensureServerSideFilter(topic) {
     const ownerUsername = topic?.details?.created_by?.username;
     if (!ownerUsername) {
@@ -109,54 +72,18 @@ export default apiInitializer("1.15.0", (api) => {
       return true;
     }
 
-    // Decide landing post number
-    const requested = getRequestedPostNumberFromPath(url.pathname);
-    let targetPostNumber = requested;
+    // Preserve the current path and post_number. Only set username_filters.
+    url.searchParams.set("username_filters", ownerUsername);
 
-    // If requested post isn't by owner, try to find a nearby owner post from loaded posts
-    if (requested) {
-      const posts = topic?.postStream?.posts || [];
-      const requestedPost = posts.find((p) => p?.post_number === requested);
-      if (!requestedPost || requestedPost?.username !== ownerUsername) {
-        const nearest = nearestOwnerPostNumber(topic, requested);
-        if (nearest) {
-          targetPostNumber = nearest;
-        } else {
-          // Fallback: drop explicit post number to land at start of filtered stream
-          targetPostNumber = null;
-        }
-      }
-    }
-
-    // Build filtered URL
-    const baseParts = url.pathname.split("/").filter(Boolean);
-    // Ensure we have at least ["t", slug, topicId]
-    const topicId = String(topic.id);
-    const slugIndex = baseParts.findIndex((p) => p === "t");
-    let basePath;
-    if (slugIndex >= 0 && baseParts.length >= slugIndex + 3) {
-      basePath = `/${baseParts.slice(0, slugIndex + 3).join("/")}`;
-    } else {
-      // Fallback to canonical
-      basePath = `/t/${topic.slug}/${topicId}`;
-    }
-
-    const newPath = targetPostNumber
-      ? `${basePath}/${targetPostNumber}`
-      : basePath;
-
-    const newUrl = new URL(url.origin + newPath + url.hash);
-    newUrl.searchParams.set("username_filters", ownerUsername);
-
-    debugLog("Navigating to server-filtered URL:", newUrl.toString());
+    debugLog("Navigating to server-filtered URL:", url.toString());
 
     // Use SPA route if available, otherwise hard replace
     try {
-      DiscourseURL.routeTo(newUrl.toString());
+      DiscourseURL.routeTo(url.toString());
     } catch (e) {
       // eslint-disable-next-line no-console
       console.warn("[Owner Comments] SPA routeTo failed, falling back to hard replace", e);
-      window.location.replace(newUrl.toString());
+      window.location.replace(url.toString());
     }
 
     return false; // We triggered navigation; current handler can stop further work
