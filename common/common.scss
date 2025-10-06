@@ -28,3 +28,12 @@ div.posts-filtered-notice { display: none; }
     left: 1rem;
   }
 }
+
+
+/* Ensure label text is visible on mobile for the owner-toggle button */
+/* Override core CSS that hides button labels on mobile for logged-in users */
+@media (max-width: 39.999rem) {
+  html:not(.anon) #topic-footer-buttons .topic-footer-main-buttons #topic-footer-button-owner-toggle .d-button-label {
+    display: inline !important;
+  }
+}
