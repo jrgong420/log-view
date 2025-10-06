@@ -100,101 +100,12 @@ export default apiInitializer("1.15.0", (api) => {
     document.body.dataset.ownerCommentMode = "true";
 
     debugLog("✅ Owner filter applied successfully");
-
-    // DOM fallback prefetch in case component hooks don't fire
-    const prefetchCount = parseInt(settings?.owner_comment_prefetch, 10) || 0;
-    if (prefetchCount > 0) {
-      debugLog("Scheduling DOM prefetch with count:", prefetchCount);
-      // Give Discourse a moment to render filtered posts before clicking toggles
-      setTimeout(() => domPrefetchOwnerReplies(prefetchCount), 250);
-    }
   }
 
   // Helper function to clear owner filter
   function clearOwnerFilter() {
     debugLog("Clearing owner filter");
     delete document.body.dataset.ownerCommentMode;
-  }
-
-  // DOM-based fallback: prefetch replies by clicking toggle buttons
-  async function domPrefetchOwnerReplies(prefetchCount) {
-    if (!prefetchCount || isNaN(prefetchCount) || prefetchCount <= 0) {
-      return;
-    }
-    if (window.__ownerDomPrefetching) {
-      debugLog("DOM prefetch already running; skipping");
-      return;
-    }
-    window.__ownerDomPrefetching = true;
-
-    try {
-      // Look for owner posts in the stream
-      const ownerPostSelectors = [
-        ".topic-owner", // common class on OP posts
-        '[data-topic-owner="true"]', // alternative data attribute
-      ];
-      const container = document.querySelector("#topic, .topic-area, .posts");
-      if (!container) {
-        debugLog("DOM prefetch: no topic container found");
-        return;
-      }
-
-      let ownerPosts = [];
-      for (const sel of ownerPostSelectors) {
-        ownerPosts = Array.from(container.querySelectorAll(sel));
-        if (ownerPosts.length) {
-          break;
-        }
-      }
-      debugLog("DOM prefetch: found owner posts:", ownerPosts.length);
-
-      const replyToggleSelectors = [
-        ".toggle-replies",
-        ".more-replies",
-        ".expand-hidden",
-        ".show-replies",
-        ".collapsed-replies .toggle-replies",
-      ];
-
-      let totalClicks = 0;
-      const maxTotalClicks = 30;
-
-      for (const postEl of ownerPosts) {
-        let clicksForThisPost = 0;
-        while (clicksForThisPost < prefetchCount && totalClicks < maxTotalClicks) {
-          let toggleBtn;
-          for (const sel of replyToggleSelectors) {
-            toggleBtn = postEl.querySelector(sel);
-            if (toggleBtn) {
-              break;
-            }
-          }
-          if (!toggleBtn) {
-            debugLog("DOM prefetch: no reply toggle found for a post");
-            break;
-          }
-
-          debugLog(
-            `DOM prefetch: clicking replies toggle (postIdx=${ownerPosts.indexOf(postEl)}, click=${clicksForThisPost + 1})`
-          );
-          toggleBtn.click();
-          totalClicks++;
-          clicksForThisPost++;
-          // small pause to let the DOM update
-          await new Promise((r) => setTimeout(r, 150));
-        }
-      }
-
-      debugLog(
-        `DOM prefetch complete. Total clicks performed: ${totalClicks} (limit ${maxTotalClicks})`
-      );
-    } catch (e) {
-      debugLog("DOM prefetch error:", e);
-      // eslint-disable-next-line no-console
-      console.error("[Owner Comments] DOM prefetch error:", e);
-    } finally {
-      window.__ownerDomPrefetching = false;
-    }
   }
 
   // Hook into page changes to detect topic navigation
