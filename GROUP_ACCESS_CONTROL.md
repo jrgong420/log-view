@@ -13,54 +13,32 @@ The group-based access control feature allows you to restrict the Log View theme
 
 ## Quick Start
 
-### Step 1: Enable Group Access Control
+### Step 1: Configure Allowed Groups
 
 1. Go to **Admin** > **Customize** > **Themes**
 2. Select the **Log View** theme component
 3. Click **Settings**
-4. Find **Group Access Enabled** and toggle it to **ON**
+4. Scroll to **Allowed Groups**
+   - Leave empty to enable for all users (unrestricted)
+   - Or select one or more groups to restrict access to members
+5. Click **Save**
 
-### Step 2: Configure Allowed Groups
-
-1. Scroll to **Allowed Groups** setting
-2. Use the group picker to select one or more groups
-3. Click **Save**
-
-### Step 3: Test
+### Step 2: Test
 
 1. Log in as a user who is a member of the selected group(s)
 2. Navigate to a topic in a configured category
 3. Verify the toggle button appears
-4. Log in as a user who is NOT a member of any selected group
+4. Log in as a user who is NOT a member of any selected group (or anonymous if groups are selected)
 5. Verify the toggle button does NOT appear
 
 ## Configuration Options
 
-### Group Access Enabled
+### Access Rules
 
-**Purpose**: Master switch for group-based access control
+Access is determined solely by the "Allowed Groups" setting:
 
-**Options**:
-- `false` (default): All users can access the theme component
-- `true`: Only users in allowed groups (and optionally staff) can access
-
-**When to use**:
-- Enable when you want to restrict access to specific groups
-- Disable for public/community-wide features
-
-### Include Staff
-
-**Purpose**: Allow staff members to bypass group restrictions
-
-**Options**:
-- `true` (default): Staff (admins and moderators) always have access
-- `false`: Staff must be in an allowed group to have access
-
-**When to use**:
-- Keep enabled (default) for easier administration and testing
-- Disable if you want strict group-only access (rare)
-
-**Note**: "Staff" includes both administrators and moderators. If you need finer control, use the allowed groups setting instead.
+- If no groups are selected: the theme component is enabled for all users (including anonymous)
+- If one or more groups are selected: only logged-in users who are members of any selected groups have access
 
 ### Allowed Groups
 
@@ -80,21 +58,14 @@ The group-based access control feature allows you to restrict the Log View theme
 
 1. **Single group**: Select "Premium Members" → only premium members have access
 2. **Multiple groups**: Select "Premium Members" and "Beta Testers" → members of either group have access
-3. **No groups**: If enabled but no groups selected → only staff have access (if include_staff is true), otherwise nobody
+3. **No groups selected**: Everyone has access (unrestricted)
 
-### Behavior for Anonymous
+### Behavior for Anonymous (Deprecated)
 
-**Purpose**: Control access for logged-out users
+This setting is no longer used to determine access. Access now depends solely on the "Allowed Groups" setting:
 
-**Options**:
-- `deny` (default): Hide theme component from anonymous users
-- `allow`: Show theme component to anonymous users
-
-**When to use**:
-- `deny`: For member-only features, private communities
-- `allow`: For public features, when you want to showcase functionality to visitors
-
-**Note**: This setting only applies when group access control is enabled. If group access control is disabled, anonymous users always see the theme component.
+- If no groups are selected: anonymous users are allowed (unrestricted)
+- If one or more groups are selected: anonymous users are denied (they are not members of any group)
 
 ## Common Scenarios
 
@@ -103,73 +74,54 @@ The group-based access control feature allows you to restrict the Log View theme
 **Goal**: Only show the log view feature to premium/paid members
 
 **Configuration**:
-1. Group Access Enabled: `true`
-2. Include Staff: `true` (so admins can test)
-3. Allowed Groups: Select "Premium Members"
-4. Behavior for Anonymous: `deny`
+1. Allowed Groups: Select "Premium Members"
 
-**Result**: Only premium members and staff see the toggle button and filtering features.
+**Result**: Only premium members see the toggle button and filtering features.
 
 ### Scenario 2: Beta Testing
 
 **Goal**: Test the feature with a small group before public release
 
 **Configuration**:
-1. Group Access Enabled: `true`
-2. Include Staff: `true`
-3. Allowed Groups: Select "Beta Testers"
-4. Behavior for Anonymous: `deny`
+1. Allowed Groups: Select "Beta Testers"
 
-**Result**: Only beta testers and staff see the feature. Once testing is complete, disable group access control to release to everyone.
+**Result**: Only beta testers see the feature. When ready to release to everyone, clear the Allowed Groups selection.
 
 ### Scenario 3: Multiple Communities
 
 **Goal**: Enable for multiple distinct communities on the same Discourse instance
 
 **Configuration**:
-1. Group Access Enabled: `true`
-2. Include Staff: `true`
-3. Allowed Groups: Select "Community A", "Community B", "Community C"
-4. Behavior for Anonymous: `deny`
+1. Allowed Groups: Select "Community A", "Community B", "Community C"
 
-**Result**: Members of any of the three communities see the feature.
+**Result**: Members of any of the selected communities see the feature.
 
 ### Scenario 4: Public Preview
 
 **Goal**: Show the feature to everyone, including anonymous users
 
 **Configuration**:
-1. Group Access Enabled: `false`
+1. Allowed Groups: Leave empty (no groups selected)
 
-**Result**: Everyone sees the feature. (No need to configure other group settings.)
-
-Alternatively, if you want to use group settings for other purposes:
-1. Group Access Enabled: `true`
-2. Allowed Groups: Select all relevant groups
-3. Behavior for Anonymous: `allow`
+**Result**: Everyone sees the feature.
 
 ## Troubleshooting
 
 ### Users can't see the feature
 
 **Check**:
-1. Is "Group Access Enabled" turned on?
-2. Are groups configured in "Allowed Groups"?
-3. Is the user a member of at least one allowed group?
-4. If the user is not in a group, is "Include Staff" enabled and are they staff?
-5. Check browser console for debug messages (look for `[Group Access Control]`)
+1. Are groups configured in "Allowed Groups"? (If any groups are selected, only members have access.)
+2. Is the user a member of at least one allowed group?
+3. If no groups are selected, all users should have access — ensure settings are saved and the page is refreshed.
+4. Check browser console for debug messages (look for `[Group Access Control]`).
 
 ### Staff can't see the feature
 
-**Check**:
-1. Is "Include Staff" enabled?
-2. If "Include Staff" is disabled, are staff members in an allowed group?
+Ensure staff are members of an allowed group when groups are selected. There is no longer a staff bypass.
 
 ### Anonymous users can see the feature (but shouldn't)
 
-**Check**:
-1. Is "Behavior for Anonymous" set to `deny`?
-2. Is "Group Access Enabled" turned on?
+If any groups are selected, anonymous users are denied. Clear Allowed Groups to enable access for all users.
 
 ### Feature appears briefly then disappears
 
@@ -239,13 +191,16 @@ Debug logging is enabled by default. To view logs:
 
 Example log messages:
 ```
-[Group Access Control] Group access control disabled; allowing all users
-[Group Access Control] Anonymous user; behavior_for_anonymous=deny; allowed=false
-[Group Access Control] User is staff and include_staff is enabled; allowing access
+[Group Access Control] Allowed group IDs: []
+[Group Access Control] No groups configured; enabling for all users (unrestricted access)
+[Group Access Control] Access granted; added body class: theme-component-access-granted
+
+[Group Access Control] Allowed group IDs: [41, 42, 43]
+[Group Access Control] Anonymous user and groups are configured; denying access
+
 [Group Access Control] Allowed group IDs: [41, 42, 43]
 [Group Access Control] User group IDs: [41, 50]
-[Group Access Control] User is a member of allowed groups
-[Group Access Control] Access granted; added body class: theme-component-access-granted
+[Group Access Control] Access decision: granted; user is a member of allowed groups
 ```
 
 ### Disable Debug Logging
@@ -284,7 +239,6 @@ The theme uses `shouldRender()` in connector components to prevent rendering for
 3. **Document your configuration**: Keep notes on which groups have access and why
 4. **Start restrictive**: It's easier to grant access later than to revoke it
 5. **Monitor feedback**: Check with users to ensure the feature is working as expected
-6. **Keep staff access enabled**: Makes administration and troubleshooting easier
 7. **Use for UX, not security**: Remember this is client-side gating
 
 ## Support

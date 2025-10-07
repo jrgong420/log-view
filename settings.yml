@@ -19,16 +19,6 @@ toggle_view_button_enabled:
 
 
 # Group-based access control settings
-group_access_enabled:
-  type: bool
-  default: false
-  description: "Enable group-based access control for this theme component"
-
-
-include_staff:
-  type: bool
-  default: true
-  description: "Allow staff members to access the theme component regardless of group membership"
 
 
 allowed_groups:
@@ -44,5 +34,5 @@ behavior_for_anonymous:
   choices:
     - deny
     - allow
-  description: "How to handle anonymous (logged-out) users"
+  description: "Deprecated: no longer used; access depends solely on Allowed groups (empty = everyone)"
 

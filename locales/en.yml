@@ -3,10 +3,8 @@ en:
     description: "Automatically filters topics in configured categories to show only the topic owner's posts, creating a journal or comments view."
     settings:
       owner_comment_categories: "Select categories where topics will auto-filter to show only the topic owner's posts. Use the category picker to select one or more categories."
-      group_access_enabled: "Enable group-based access control to restrict this theme component to specific groups"
-      include_staff: "When enabled, staff members (admins and moderators) can always access the theme component regardless of group membership"
-      allowed_groups: "Select one or more groups that are allowed to access this theme component. Users must be members of at least one selected group to see the component's features."
-      behavior_for_anonymous: "Choose how to handle anonymous (logged-out) users: 'deny' hides the component, 'allow' shows it to everyone when logged out"
+      allowed_groups: "Select one or more groups allowed to access this theme component. Leave empty to enable for all users (including anonymous)."
+      behavior_for_anonymous: "[Deprecated] No longer used; access depends on Allowed groups (empty = everyone)."
   js:
     owner_comments:
       filtered_notice: "Viewing only posts by topic owner"

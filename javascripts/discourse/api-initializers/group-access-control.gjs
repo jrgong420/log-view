@@ -7,10 +7,11 @@ import { apiInitializer } from "discourse/lib/api";
  * allowed groups and adds a body class to enable/disable theme features.
  *
  * Settings used:
- * - group_access_enabled: master switch for group gating
- * - include_staff: allow staff regardless of group membership
  * - allowed_groups: list setting with group IDs (pipe-separated)
- * - behavior_for_anonymous: "deny" or "allow" for logged-out users
+ *
+ * Access rules:
+ * - If no groups are selected: enable for all users (including anonymous)
+ * - If one or more groups are selected: enable only for logged-in users who are members of any selected groups
  */
 export default apiInitializer("1.15.0", (api) => {
   const DEBUG = true; // Set to false to disable debug logging
@@ -27,28 +28,7 @@ export default apiInitializer("1.15.0", (api) => {
    * @returns {boolean} true if user is allowed, false otherwise
    */
   function isUserAllowed() {
-    // If group access control is disabled, allow everyone
-    if (!settings.group_access_enabled) {
-      debugLog("Group access control disabled; allowing all users");
-      return true;
-    }
-
     const currentUser = api.getCurrentUser();
-
-    // Handle anonymous users
-    if (!currentUser) {
-      const allowAnon = settings.behavior_for_anonymous === "allow";
-      debugLog(
-        `Anonymous user; behavior_for_anonymous=${settings.behavior_for_anonymous}; allowed=${allowAnon}`
-      );
-      return allowAnon;
-    }
-
-    // Check staff override
-    if (settings.include_staff && currentUser.staff) {
-      debugLog("User is staff and include_staff is enabled; allowing access");
-      return true;
-    }
 
     // Extract allowed group IDs from the list setting (pipe-separated)
     const allowedGroupsSetting = settings.allowed_groups || "";
@@ -59,9 +39,15 @@ export default apiInitializer("1.15.0", (api) => {
 
     debugLog("Allowed group IDs:", allowedGroupIds);
 
-    // If no groups are configured, deny by default (safe default)
+    // If no groups are configured, enable for all users (unrestricted)
     if (allowedGroupIds.length === 0) {
-      debugLog("No groups configured; denying access by default");
+      debugLog("No groups configured; enabling for all users (unrestricted access)");
+      return true;
+    }
+
+    // Groups are configured: anonymous users are not members of any group
+    if (!currentUser) {
+      debugLog("Anonymous user and groups are configured; denying access");
       return false;
     }
 
@@ -75,7 +61,11 @@ export default apiInitializer("1.15.0", (api) => {
       userGroupIds.includes(allowedId)
     );
 
-    debugLog(`User is ${isMember ? "" : "NOT "}a member of allowed groups`);
+    debugLog(
+      `Access decision: ${isMember ? "granted" : "denied"}; user is ${
+        isMember ? "" : "NOT "
+      }a member of allowed groups`
+    );
 
     return isMember;
   }
