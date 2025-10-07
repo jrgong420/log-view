@@ -69,23 +69,27 @@ body:not(.theme-component-access-granted) {
 
 /* ===== Hide Reply Buttons for Non-Owners ===== */
 
-/* Hide top-level reply buttons and style post-level buttons for non-owners */
-body.hide-reply-buttons-non-owners {
-  /* Timeline footer reply button (desktop) */
-  .timeline-footer-controls .create,
-  .timeline-footer-controls .reply-to-post {
-    display: none !important;
-  }
+/*
+ * IMPORTANT: All rules are scoped under body.hide-reply-buttons-non-owners
+ * This body class is ONLY added in configured categories for non-owner users
+ * The JavaScript in hide-reply-buttons.gjs manages this class based on:
+ *   - Setting enabled
+ *   - Topic in configured category
+ *   - Current user is NOT the topic owner
+ */
 
-  /* Topic footer reply button */
+body.hide-reply-buttons-non-owners {
+  /* Hide top-level reply buttons (timeline and topic footer) */
+  .timeline-footer-controls .create,
+  .timeline-footer-controls .reply-to-post,
   .topic-footer-main-buttons .create,
   .topic-footer-main-buttons .reply-to-post {
     display: none !important;
   }
 
-  /* Style adjustment: make post-level reply buttons resemble btn-primary */
+  /* Style post-level reply buttons as primary actions */
 
-  /* Use more specific selectors to override core Discourse styles */
+  /* Uses more specific selectors to override core Discourse styles */
   nav.post-controls .actions button.create,
   nav.post-controls .actions button.reply,
   nav.post-controls .actions button.reply-to-post,

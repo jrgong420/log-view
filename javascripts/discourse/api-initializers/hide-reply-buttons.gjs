@@ -23,8 +23,11 @@ function debugLog(...args) {
 }
 
 export default apiInitializer("1.15.0", (api) => {
-  api.onPageChange(() => {
+  api.onPageChange((url) => {
     schedule("afterRender", () => {
+      debugLog("Page changed to:", url);
+      debugLog("Body class before evaluation:", document.body.classList.contains("hide-reply-buttons-non-owners"));
+
       // Guard 1: Check if setting is enabled
       if (!settings.hide_reply_buttons_for_non_owners) {
         document.body.classList.remove("hide-reply-buttons-non-owners");
@@ -37,7 +40,7 @@ export default apiInitializer("1.15.0", (api) => {
       // Guard 2: Get topic data
       const topic = api.container.lookup("controller:topic")?.model;
       if (!topic) {
-        debugLog("No topic found; skipping");
+        debugLog("No topic found; removing body class");
         document.body.classList.remove("hide-reply-buttons-non-owners");
         return;
       }
@@ -93,9 +96,13 @@ export default apiInitializer("1.15.0", (api) => {
 
       if (isOwner) {
         document.body.classList.remove("hide-reply-buttons-non-owners");
+        debugLog("Body class removed (owner)");
       } else {
         document.body.classList.add("hide-reply-buttons-non-owners");
+        debugLog("Body class added (non-owner)");
       }
+
+      debugLog("Body class after evaluation:", document.body.classList.contains("hide-reply-buttons-non-owners"));
     });
   });
 });
