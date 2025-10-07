@@ -18,6 +18,9 @@ This feature provides a UI-only mechanism to hide top-level reply buttons from n
   - Background: `var(--tertiary)`
   - Text: `var(--secondary)`
   - Border: `transparent`
+  - Hover: `var(--tertiary-hover)` with brightness filter
+  - Active: `var(--tertiary-high)` with darker brightness
+  - Focus: Outline with `var(--tertiary-low)`
 
 - **Applies only in configured categories**:
   - Only works in categories defined in "Owner Comment Categories" setting
@@ -124,9 +127,21 @@ The feature uses a body class approach for clean separation of concerns:
 
 **Styled elements** (post-level reply buttons):
 ```scss
-.post-controls .reply
-.post-controls .reply-to-post
+/* More specific selectors to override core Discourse styles */
+nav.post-controls .actions button.create
+nav.post-controls .actions button.reply
+nav.post-controls .actions button.reply-to-post
+.topic-body .actions button.create
+.topic-body .actions button.reply
+.topic-body .actions button.reply-to-post
 ```
+
+**Styling details**:
+- Base: `background-color: var(--tertiary)`, `color: var(--secondary)`
+- Hover: `background-color: var(--tertiary-hover)`, `filter: brightness(0.9)`
+- Active: `background-color: var(--tertiary-high)`, `filter: brightness(0.85)`
+- Focus: `outline: 2px solid var(--tertiary-low)`
+- All with `!important` to override core styles
 
 ### Debug Logging
 

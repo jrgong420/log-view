@@ -84,15 +84,38 @@ body.hide-reply-buttons-non-owners {
   }
 
   /* Style adjustment: make post-level reply buttons resemble btn-primary */
-  .post-controls .reply,
-  .post-controls .reply-to-post {
-    background-color: var(--tertiary);
-    color: var(--secondary);
-    border-color: transparent;
 
-    &:hover,
+  /* Use more specific selectors to override core Discourse styles */
+  nav.post-controls .actions button.create,
+  nav.post-controls .actions button.reply,
+  nav.post-controls .actions button.reply-to-post,
+  .topic-body .actions button.create,
+  .topic-body .actions button.reply,
+  .topic-body .actions button.reply-to-post {
+    background-color: var(--tertiary) !important;
+    color: var(--secondary) !important;
+    border-color: transparent !important;
+    opacity: 1 !important;
+    transition: background 0.25s, opacity 0.25s !important;
+
+    &:hover {
+      background-color: var(--tertiary-hover, var(--tertiary)) !important;
+      color: var(--secondary) !important;
+      opacity: 1 !important;
+      filter: brightness(0.9);
+    }
+
+    &:active {
+      background-color: var(--tertiary-high, var(--tertiary)) !important;
+      color: var(--secondary) !important;
+      filter: brightness(0.85);
+    }
+
     &:focus {
-      filter: brightness(0.95);
+      background-color: var(--tertiary) !important;
+      color: var(--secondary) !important;
+      outline: 2px solid var(--tertiary-low);
+      outline-offset: 2px;
     }
   }
 }
