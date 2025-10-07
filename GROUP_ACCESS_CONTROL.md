@@ -54,6 +54,8 @@ Access is determined solely by the "Allowed Groups" setting:
 - Group membership is checked by group ID (not name), so renaming groups is safe
 - Changes take effect on next page load/navigation
 
+**Important**: Groups must have their visibility set to "group owners, members and moderators" or more permissive (e.g., "everyone") for the theme component to properly detect user membership. If a group's visibility is set to "group owners and moderators", regular members will not be recognized by the theme component even if they are in the group.
+
 **Example configurations**:
 
 1. **Single group**: Select "Premium Members" → only premium members have access
@@ -112,8 +114,9 @@ This setting is no longer used to determine access. Access now depends solely on
 **Check**:
 1. Are groups configured in "Allowed Groups"? (If any groups are selected, only members have access.)
 2. Is the user a member of at least one allowed group?
-3. If no groups are selected, all users should have access — ensure settings are saved and the page is refreshed.
-4. Check browser console for debug messages (look for `[Group Access Control]`).
+3. **Group visibility**: Ensure the group's visibility is set to "group owners, members and moderators" or more permissive. If set to "group owners and moderators", regular members won't be detected.
+4. If no groups are selected, all users should have access — ensure settings are saved and the page is refreshed.
+5. Check browser console for debug messages (look for `[Group Access Control]`).
 
 ### Staff can't see the feature
 

@@ -49,6 +49,8 @@ How it works:
 2. Select one or more groups from the group picker (or leave empty for unrestricted access)
 3. Save your changes
 
+**Important**: Groups must have their visibility set to "group owners, members and moderators" or more permissive for the theme to detect user membership. If a group's visibility is "group owners and moderators", regular members will not be recognized.
+
 #### Behavior for Anonymous (Deprecated)
 This setting is no longer used to determine access. Access now depends solely on the "Allowed Groups" setting.
 - If no groups are selected: anonymous users are allowed (unrestricted)
