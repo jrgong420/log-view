@@ -9,6 +9,7 @@ A Discourse theme component that automatically filters topics in configured cate
 - **Toggle button**: Users can switch between filtered and unfiltered views
 - **Mobile & Desktop support**: Works seamlessly on both mobile and desktop layouts
 - **Group-based access control**: Restrict theme component functionality to specific user groups
+- **Reply button hiding**: Hide top-level reply buttons from non-owners in configured categories (UI-only restriction)
 
 ## Installation
 
@@ -30,6 +31,22 @@ When enabled, the owner-only filtered view is automatically applied in enabled c
 
 #### Toggle View Button
 Enable or disable the toggle button that allows users to switch between filtered and unfiltered views. **Note**: The toggle button will only appear in categories configured in "Owner Comment Categories", even when this setting is enabled.
+
+#### Hide Reply Buttons for Non-Owners
+**Type**: Boolean
+**Default**: false
+
+When enabled, hides top-level reply buttons (timeline and topic footer) from all users except the topic owner in categories configured for owner comments. Post-level reply buttons (on individual posts) remain visible and are styled as primary actions.
+
+**Important limitations**:
+- This is a **UI-only restriction** and does not prevent replies via:
+  - Keyboard shortcuts (Shift+R)
+  - API calls
+  - Browser console manipulation
+- Only applies in categories configured in "Owner Comment Categories"
+- For true access control, use Discourse's built-in category permissions
+
+**Use case**: Reduce visual clutter and gently encourage users to use post-level replies in journal-style topics, while still allowing flexibility for those who need it.
 
 ### Group-Based Access Control
 
@@ -118,13 +135,14 @@ log-view/
 │   └── discourse/
 │       ├── api-initializers/
 │       │   ├── group-access-control.gjs    # Group access control logic
+│       │   ├── hide-reply-buttons.gjs      # Reply button hiding logic
 │       │   ├── log-view.gjs                # Main initializer (placeholder)
 │       │   ├── owner-comment-prototype.gjs # Owner filtering logic
 │       │   └── owner-toggle-outlets.gjs    # Registers toggle button outlets
 │       ├── components/
 │       │   └── owner-toggle-button.gjs     # Toggle button component
 │       └── lib/
-│           └── group-access-utils.js       # Shared access check utility
+│           └── group-access-utils.js       # Shared utilities (access check, category parsing)
 └── common/
     └── common.scss                    # Shared styles
 ```
@@ -146,10 +164,13 @@ When testing group-based access control:
 
 ### Debug Logging
 
-Both the group access control and owner filtering logic include debug logging. To view logs:
+The theme includes debug logging for group access control, owner filtering, and reply button hiding. To view logs:
 
 1. Open your browser's developer console (F12)
-2. Look for messages prefixed with `[Group Access Control]` or `[Owner Comments]`
+2. Look for messages prefixed with:
+   - `[Group Access Control]` - Group membership checks
+   - `[Owner Comments]` - Owner filtering logic
+   - `[Hide Reply Buttons]` - Reply button hiding decisions
 3. To disable debug logging, edit the initializer files and set `DEBUG = false`
 
 ## License

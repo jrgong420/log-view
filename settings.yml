@@ -36,3 +36,11 @@ behavior_for_anonymous:
     - allow
   description: "Deprecated: no longer used; access depends solely on Allowed groups (empty = everyone)"
 
+
+# Reply button visibility control
+
+hide_reply_buttons_for_non_owners:
+  type: bool
+  default: false
+  description: "Hide top-level reply buttons from non-owners in configured categories. Post-level reply buttons remain visible and are styled as primary actions. This is a UI-only restriction."
+

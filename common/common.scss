@@ -65,3 +65,61 @@ body:not(.theme-component-access-granted) {
     box-shadow: 0 2px 8px rgb(0, 0, 0, 0.15);
   }
 }
+
+
+/* ===== Hide Reply Buttons for Non-Owners ===== */
+
+/*
+ * IMPORTANT: All rules are scoped under body.hide-reply-buttons-non-owners
+ * This body class is ONLY added in configured categories for non-owner users
+ * The JavaScript in hide-reply-buttons.gjs manages this class based on:
+ *   - Setting enabled
+ *   - Topic in configured category
+ *   - Current user is NOT the topic owner
+ */
+
+body.hide-reply-buttons-non-owners {
+  /* Hide top-level reply buttons (timeline and topic footer) */
+  .timeline-footer-controls .create,
+  .timeline-footer-controls .reply-to-post,
+  .topic-footer-main-buttons .create,
+  .topic-footer-main-buttons .reply-to-post {
+    display: none !important;
+  }
+
+  /* Style post-level reply buttons as primary actions */
+
+  /* Uses more specific selectors to override core Discourse styles */
+  nav.post-controls .actions button.create,
+  nav.post-controls .actions button.reply,
+  nav.post-controls .actions button.reply-to-post,
+  .topic-body .actions button.create,
+  .topic-body .actions button.reply,
+  .topic-body .actions button.reply-to-post {
+    background-color: var(--tertiary) !important;
+    color: var(--secondary) !important;
+    border-color: transparent !important;
+    opacity: 1 !important;
+    transition: background 0.25s, opacity 0.25s !important;
+
+    &:hover {
+      background-color: var(--tertiary-hover, var(--tertiary)) !important;
+      color: var(--secondary) !important;
+      opacity: 1 !important;
+      filter: brightness(0.9);
+    }
+
+    &:active {
+      background-color: var(--tertiary-high, var(--tertiary)) !important;
+      color: var(--secondary) !important;
+      filter: brightness(0.85);
+    }
+
+    &:focus {
+      background-color: var(--tertiary) !important;
+      color: var(--secondary) !important;
+      outline: 2px solid var(--tertiary-low);
+      outline-offset: 2px;
+    }
+  }
+}
