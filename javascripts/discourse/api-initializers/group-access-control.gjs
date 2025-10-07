@@ -37,6 +37,7 @@ export default apiInitializer("1.15.0", (api) => {
       .map((id) => parseInt(id.trim(), 10))
       .filter((id) => !isNaN(id));
 
+    debugLog("Allowed groups setting raw:", settings.allowed_groups);
     debugLog("Allowed group IDs:", allowedGroupIds);
 
     // If no groups are configured, enable for all users (unrestricted)
@@ -54,8 +55,11 @@ export default apiInitializer("1.15.0", (api) => {
     // Check if user belongs to any of the allowed groups
     const userGroups = currentUser.groups || [];
     const userGroupIds = userGroups.map((g) => g.id);
+    const userGroupNames = userGroups.map((g) => g.name || g.full_name || g.slug);
 
+    debugLog("User groups raw:", userGroups);
     debugLog("User group IDs:", userGroupIds);
+    debugLog("Allowed vs User IDs:", { allowedGroupIds, userGroupIds });
 
     const isMember = allowedGroupIds.some((allowedId) =>
       userGroupIds.includes(allowedId)
@@ -64,7 +68,7 @@ export default apiInitializer("1.15.0", (api) => {
     debugLog(
       `Access decision: ${isMember ? "granted" : "denied"}; user is ${
         isMember ? "" : "NOT "
-      }a member of allowed groups`
+      }a member of allowed groups; user group names: ${JSON.stringify(userGroupNames)}`
     );
 
     return isMember;

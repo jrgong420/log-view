@@ -20,7 +20,11 @@ function debugLog(...args) {
  */
 export function isUserAllowedAccess(helper, fallbackContext = null) {
   const container = resolveOwner(helper) || resolveOwner(fallbackContext);
-  const currentUser = container?.lookup?.("service:current-user")?.user;
+  const cuService = container?.lookup?.("service:current-user");
+  // Robust resolution: in Discourse, current-user may be the user object itself
+  // or expose the user via .user / .currentUser / .current
+  const currentUser = cuService && (cuService.user || cuService.currentUser || cuService.current || cuService);
+  debugLog("Resolved currentUser:", currentUser ? { id: currentUser.id, username: currentUser.username } : null);
 
   // Get theme settings from the global settings object
   // Note: In connectors, settings is available globally (not window.settings)
@@ -34,6 +38,9 @@ export function isUserAllowedAccess(helper, fallbackContext = null) {
     .filter((id) => !isNaN(id));
 
   debugLog("Allowed group IDs:", allowedGroupIds);
+  if (currentUser) {
+    debugLog("Current user groups raw:", currentUser.groups);
+  }
 
   // If no groups are configured, enable for all users (unrestricted)
   if (allowedGroupIds.length === 0) {
@@ -52,6 +59,7 @@ export function isUserAllowedAccess(helper, fallbackContext = null) {
   const userGroupIds = userGroups.map((g) => g.id);
 
   debugLog("User group IDs:", userGroupIds);
+  debugLog("Comparison:", { allowedGroupIds, userGroupIds });
 
   const isMember = allowedGroupIds.some((allowedId) => userGroupIds.includes(allowedId));
   debugLog(
