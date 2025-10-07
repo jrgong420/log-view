@@ -4,6 +4,14 @@ import { getOwner } from "@ember/owner";
  * Shared utility for checking group-based access control and category settings.
  * Used by connectors to gate rendering via shouldRender.
  */
+const DEBUG = true; // Set to false to disable debug logging
+function debugLog(...args) {
+  if (DEBUG) {
+    // eslint-disable-next-line no-console
+    console.log("[Group Access Control]", ...args);
+  }
+}
+
 
 /**
  * Check if the current user is allowed to access the theme component.
@@ -12,27 +20,15 @@ import { getOwner } from "@ember/owner";
  */
 export function isUserAllowedAccess(helper, fallbackContext = null) {
   const container = resolveOwner(helper) || resolveOwner(fallbackContext);
-  const currentUser = container?.lookup?.("service:current-user")?.user;
+  const cuService = container?.lookup?.("service:current-user");
+  // Robust resolution: in Discourse, current-user may be the user object itself
+  // or expose the user via .user / .currentUser / .current
+  const currentUser = cuService && (cuService.user || cuService.currentUser || cuService.current || cuService);
+  debugLog("Resolved currentUser:", currentUser ? { id: currentUser.id, username: currentUser.username } : null);
 
   // Get theme settings from the global settings object
   // Note: In connectors, settings is available globally (not window.settings)
-
   const themeSettings = typeof settings !== "undefined" ? settings : {};
-
-  // If group access control is disabled, allow everyone
-  if (!themeSettings.group_access_enabled) {
-    return true;
-  }
-
-  // Handle anonymous users
-  if (!currentUser) {
-    return themeSettings.behavior_for_anonymous === "allow";
-  }
-
-  // Check staff override
-  if (themeSettings.include_staff && currentUser.staff) {
-    return true;
-  }
 
   // Extract allowed group IDs from the list setting (pipe-separated)
   const allowedGroupsSetting = themeSettings.allowed_groups || "";
@@ -41,8 +37,20 @@ export function isUserAllowedAccess(helper, fallbackContext = null) {
     .map((id) => parseInt(id.trim(), 10))
     .filter((id) => !isNaN(id));
 
-  // If no groups are configured, deny by default (safe default)
+  debugLog("Allowed group IDs:", allowedGroupIds);
+  if (currentUser) {
+    debugLog("Current user groups raw:", currentUser.groups);
+  }
+
+  // If no groups are configured, enable for all users (unrestricted)
   if (allowedGroupIds.length === 0) {
+    debugLog("No groups configured; enabling for all users (unrestricted access)");
+    return true;
+  }
+
+  // Groups are configured: anonymous users are not members of any group
+  if (!currentUser) {
+    debugLog("Anonymous user and groups are configured; denying access");
     return false;
   }
 
@@ -50,7 +58,17 @@ export function isUserAllowedAccess(helper, fallbackContext = null) {
   const userGroups = currentUser.groups || [];
   const userGroupIds = userGroups.map((g) => g.id);
 
-  return allowedGroupIds.some((allowedId) => userGroupIds.includes(allowedId));
+  debugLog("User group IDs:", userGroupIds);
+  debugLog("Comparison:", { allowedGroupIds, userGroupIds });
+
+  const isMember = allowedGroupIds.some((allowedId) => userGroupIds.includes(allowedId));
+  debugLog(
+    `Access decision: ${isMember ? "granted" : "denied"}; user is ${
+      isMember ? "" : "NOT "
+    }a member of allowed groups`
+  );
+
+  return isMember;
 }
 
 function resolveOwner(context) {

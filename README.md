@@ -35,37 +35,26 @@ Enable or disable the toggle button that allows users to switch between filtered
 
 The theme component includes optional group-based access control to restrict functionality to specific user groups.
 
-#### Group Access Enabled
-**Type**: Boolean
-**Default**: `false`
-
-Master switch to enable group-based access control. When disabled, all users can access the theme component features.
-
-#### Include Staff
-**Type**: Boolean
-**Default**: `true`
-
-When enabled, staff members (admins and moderators) can always access the theme component regardless of group membership. This is useful for testing and administration.
 
 #### Allowed Groups
-**Type**: Objects (with groups property)
+**Type**: Objects (group picker)
 **Default**: Empty
 
-Select one or more groups that are allowed to access this theme component. Users must be members of at least one selected group to see the component's features.
+How it works:
+- If no groups are selected: everyone (including anonymous) can access the theme component
+- If one or more groups are selected: only logged-in users who are members of any selected groups can access
 
 **How to configure**:
-1. Enable "Group Access Enabled"
-2. Click "Add Item" under "Allowed Groups"
-3. Select one or more groups from the group picker
-4. Save your changes
+1. Click "Add Item" under "Allowed Groups"
+2. Select one or more groups from the group picker (or leave empty for unrestricted access)
+3. Save your changes
 
-#### Behavior for Anonymous
-**Type**: Enum (`deny` or `allow`)
-**Default**: `deny`
+**Important**: Groups must have their visibility set to "group owners, members and moderators" or more permissive for the theme to detect user membership. If a group's visibility is "group owners and moderators", regular members will not be recognized.
 
-Choose how to handle anonymous (logged-out) users:
-- **deny**: Hide the theme component from logged-out users
-- **allow**: Show the theme component to logged-out users
+#### Behavior for Anonymous (Deprecated)
+This setting is no longer used to determine access. Access now depends solely on the "Allowed Groups" setting.
+- If no groups are selected: anonymous users are allowed (unrestricted)
+- If one or more groups are selected: anonymous users are denied
 
 ## How Group Access Control Works
 
@@ -97,7 +86,7 @@ The group access control is implemented entirely on the client side using Discou
 ### Edge Cases and Behavior
 
 #### No Groups Configured
-If "Group Access Enabled" is `true` but no groups are selected in "Allowed Groups", the theme will **deny access by default** (safe default). Staff will still have access if "Include Staff" is enabled.
+If no groups are selected in "Allowed Groups", the theme will enable access for everyone (including anonymous).
 
 #### Group Changes
 - The theme checks group membership by group ID (not name), so renaming groups won't break access control
