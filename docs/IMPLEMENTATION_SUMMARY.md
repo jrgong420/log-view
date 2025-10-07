@@ -13,12 +13,13 @@ This feature adds a new setting to hide reply buttons from non-owner users in ca
 ### ✅ What We Will Do
 
 1. **Add boolean setting** `hide_reply_buttons_for_non_owners` (default: false)
-2. **Hide reply buttons via CSS** using body class `hide-reply-buttons-non-owners`
+2. **Hide top-level reply buttons via CSS** using body class `hide-reply-buttons-non-owners`
 3. **Use `api.onPageChange()`** for SPA-friendly re-evaluation
 4. **Compare user IDs**: `currentUser.id === topic.details.created_by.id`
 5. **Scope to configured categories**: Only applies in `owner_comment_categories`
 6. **Add comprehensive logging** for debugging
 7. **Document limitations** clearly (UI-only, keyboard shortcuts still work)
+8. **Style post-level reply buttons** to resemble primary action styling (btn-primary) when the feature is active; do NOT hide them
 
 ### ❌ What We Will NOT Do
 
@@ -48,10 +49,10 @@ This feature adds a new setting to hide reply buttons from non-owner users in ca
   - [ ] Add user ID comparison logic
   - [ ] Add/remove body class based on ownership
   - [ ] Add debug logging
-- [ ] **Step 4**: Add CSS hiding rules to `common/common.scss`
-  - [ ] Target timeline footer reply button
-  - [ ] Target topic footer reply button
-  - [ ] Target post-level reply buttons
+- [ ] **Step 4**: Add CSS rules to `common/common.scss`
+  - [ ] Target timeline footer reply button (hide for non-owners)
+  - [ ] Target topic footer reply button (hide for non-owners)
+  - [ ] Style post-level reply buttons to resemble btn-primary (do NOT hide)
 - [ ] **Step 5**: Add `parseCategoryIds()` helper to `group-access-utils.js`
 
 ### Phase 2: Documentation
@@ -156,8 +157,8 @@ This feature adds a new setting to hide reply buttons from non-owner users in ca
 
 **In configured categories**:
 - Topic owner sees all reply buttons (normal behavior)
-- Non-owners see no reply buttons (hidden via CSS)
-- Anonymous users see no reply buttons (hidden via CSS)
+- Non-owners: top-level reply buttons are hidden; post-level reply buttons remain visible and are styled as primary
+- Anonymous users: same as non-owners (top-level hidden; post-level visible with primary styling)
 
 **In non-configured categories**:
 - All users see reply buttons (normal behavior)
@@ -189,9 +190,9 @@ This feature adds a new setting to hide reply buttons from non-owner users in ca
 ## Questions for Review
 
 1. Are the CSS selectors correct for targeting reply buttons?
-2. Should we hide reply buttons on individual posts, or only the main topic reply buttons?
+2. We will NOT hide post-level reply buttons; please review the proposed primary-style spec (colors based on Discourse variables).
 3. Is the limitation documentation clear enough?
-4. Should we add a visual indicator when buttons are hidden (e.g., tooltip or notice)?
+4. Should we add a visual indicator when top-level buttons are hidden (e.g., tooltip or notice)?
 
 ---
 

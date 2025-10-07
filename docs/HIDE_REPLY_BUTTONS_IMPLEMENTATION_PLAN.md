@@ -15,7 +15,13 @@ Add a new feature to hide reply buttons from non-owner users in categories confi
 ### Target Elements to Hide
 1. **Desktop timeline reply button**: Reply button in `timeline-footer-controls` outlet area
 2. **Topic footer reply button**: Primary reply button in topic footer controls (bottom of topic)
-3. **Post-level reply buttons**: Individual reply buttons on each post (if applicable)
+
+### Style Adjustments (Post-level reply buttons)
+- Do NOT hide post-level reply buttons.
+- When the feature is active (setting enabled + category match), adjust post-level reply buttons to resemble primary action button styling (btn-primary):
+  - Use Discourse color variables (no hardcoded colors): background `var(--tertiary)`, text `var(--secondary)`, border `transparent`.
+  - On hover/focus, use `var(--tertiary-hover)` if available or apply a suitable opacity/brightness tweak.
+  - Keep scope under the body guard class to avoid site-wide impact.
 
 ## Research Findings: Keyboard Shortcuts
 
@@ -156,24 +162,32 @@ export default apiInitializer("1.15.0", (api) => {
 
 **Target selectors** (based on Discourse core structure):
 ```scss
-/* Hide reply buttons for non-owners when setting is enabled */
+/* Hide top-level reply buttons for non-owners when setting is enabled */
 body.hide-reply-buttons-non-owners {
   /* Timeline footer reply button (desktop) */
   .timeline-footer-controls .create,
   .timeline-footer-controls .reply-to-post {
     display: none !important;
   }
-  
+
   /* Topic footer reply button */
   .topic-footer-main-buttons .create,
   .topic-footer-main-buttons .reply-to-post {
     display: none !important;
   }
-  
-  /* Post-level reply buttons */
+}
+
+/* Style adjustment: make post-level reply buttons resemble btn-primary when feature is active */
+body.hide-reply-buttons-non-owners {
   .post-controls .reply,
   .post-controls .reply-to-post {
-    display: none !important;
+    background-color: var(--tertiary);
+    color: var(--secondary);
+    border-color: transparent;
+  }
+  .post-controls .reply:hover,
+  .post-controls .reply-to-post:hover {
+    filter: brightness(0.95);
   }
 }
 ```
@@ -304,9 +318,10 @@ This feature works independently of the "Allowed groups" setting:
    - [ ] As topic owner → verify can click reply buttons
    
 3. **Non-Owner User**:
-   - [ ] As non-owner → verify reply buttons are hidden
+   - [ ] As non-owner → verify top-level reply buttons are hidden
+   - [ ] As non-owner → verify post-level reply buttons remain visible and styled as primary
    - [ ] As non-owner → verify Shift+R still opens composer (documented limitation)
-   
+
 4. **Category Filtering**:
    - [ ] In configured category → verify hiding works
    - [ ] In non-configured category → verify buttons always show
