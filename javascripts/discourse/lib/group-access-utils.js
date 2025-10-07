@@ -12,6 +12,22 @@ function debugLog(...args) {
   }
 }
 
+/**
+ * Parse category IDs from pipe-separated setting string.
+ * @param {string} categorySetting - Pipe-separated category IDs
+ * @returns {number[]} Array of category IDs
+ */
+export function parseCategoryIds(categorySetting) {
+  if (!categorySetting) {
+    return [];
+  }
+
+  return categorySetting
+    .split("|")
+    .map((id) => parseInt(id.trim(), 10))
+    .filter((id) => !isNaN(id));
+}
+
 
 /**
  * Check if the current user is allowed to access the theme component.

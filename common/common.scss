@@ -65,3 +65,34 @@ body:not(.theme-component-access-granted) {
     box-shadow: 0 2px 8px rgb(0, 0, 0, 0.15);
   }
 }
+
+
+/* ===== Hide Reply Buttons for Non-Owners ===== */
+
+/* Hide top-level reply buttons and style post-level buttons for non-owners */
+body.hide-reply-buttons-non-owners {
+  /* Timeline footer reply button (desktop) */
+  .timeline-footer-controls .create,
+  .timeline-footer-controls .reply-to-post {
+    display: none !important;
+  }
+
+  /* Topic footer reply button */
+  .topic-footer-main-buttons .create,
+  .topic-footer-main-buttons .reply-to-post {
+    display: none !important;
+  }
+
+  /* Style adjustment: make post-level reply buttons resemble btn-primary */
+  .post-controls .reply,
+  .post-controls .reply-to-post {
+    background-color: var(--tertiary);
+    color: var(--secondary);
+    border-color: transparent;
+
+    &:hover,
+    &:focus {
+      filter: brightness(0.95);
+    }
+  }
+}
