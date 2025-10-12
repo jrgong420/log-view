@@ -589,31 +589,60 @@ export default apiInitializer("1.14.0", (api) => {
 
         console.log(`${LOG_PREFIX} AutoRefresh: target parent post #${parentPostNumber} (source: ${parentSource})`);
 
-        // Find the parent post element
-        const parentPostElement = document.querySelector(
-          `article.topic-post[data-post-number="${parentPostNumber}"]`
-        );
+        // In filtered view, the embedded post we replied to is NOT a standalone article.topic-post
+        // Instead, it's embedded inside an owner's post in section.embedded-posts
+        // We need to find which owner's post contains this embedded post
 
-        if (!parentPostElement) {
-          console.log(`${LOG_PREFIX} AutoRefresh: parent post element not found in DOM for #${parentPostNumber}`);
+        // Strategy 1: Try to find the embedded post element by data-post-number or data-post-id
+        let ownerPostElement = null;
+
+        // Look for the embedded post inside any section.embedded-posts
+        const allEmbeddedSections = document.querySelectorAll("section.embedded-posts");
+        console.log(`${LOG_PREFIX} AutoRefresh: found ${allEmbeddedSections.length} embedded-posts sections`);
+
+        for (const section of allEmbeddedSections) {
+          // Check if this section contains an embedded post with our target post number
+          const embeddedPost = section.querySelector(
+            `[data-post-number="${parentPostNumber}"], [data-post-id], #post_${parentPostNumber}, #post-${parentPostNumber}`
+          );
+
+          if (embeddedPost) {
+            // Found it! Now find the owner's post that contains this section
+            ownerPostElement = section.closest("article.topic-post");
+            console.log(`${LOG_PREFIX} AutoRefresh: found embedded post #${parentPostNumber} inside owner post #${ownerPostElement?.dataset?.postNumber}`);
+            break;
+          }
+        }
+
+        // Strategy 2: If not found in embedded sections, try direct lookup (fallback for non-filtered view)
+        if (!ownerPostElement) {
+          ownerPostElement = document.querySelector(
+            `article.topic-post[data-post-number="${parentPostNumber}"]`
+          );
+          if (ownerPostElement) {
+            console.log(`${LOG_PREFIX} AutoRefresh: found parent post #${parentPostNumber} as standalone article`);
+          }
+        }
+
+        if (!ownerPostElement) {
+          console.log(`${LOG_PREFIX} AutoRefresh: could not find owner post containing embedded post #${parentPostNumber}`);
           return;
         }
-        console.log(`${LOG_PREFIX} AutoRefresh: found parent post element for #${parentPostNumber}`);
+        console.log(`${LOG_PREFIX} AutoRefresh: targeting owner post #${ownerPostElement.dataset.postNumber} for refresh`);
 
         // Wait for DOM to update, then trigger "load more replies"
         schedule("afterRender", () => {
-          // Try to find the "load more replies" button
-          console.log(`${LOG_PREFIX} AutoRefresh: schedule(afterRender) start for parent #${parentPostNumber}`);
-          const embeddedSection = parentPostElement.querySelector("section.embedded-posts");
+          // Try to find the "load more replies" button in the owner's post
+          console.log(`${LOG_PREFIX} AutoRefresh: schedule(afterRender) start for owner post #${ownerPostElement.dataset.postNumber}`);
+          const embeddedSection = ownerPostElement.querySelector("section.embedded-posts");
           console.log(`${LOG_PREFIX} AutoRefresh: embeddedSection ${embeddedSection ? "found" : "NOT found"}`);
           const loadMoreBtn = embeddedSection?.querySelector(".load-more-replies");
           console.log(`${LOG_PREFIX} AutoRefresh: loadMoreBtn ${loadMoreBtn ? "found" : "NOT found"}`);
 
           if (loadMoreBtn) {
-
-        // Clear stored context after handling to avoid stale data
-        lastReplyContext = { topicId: null, parentPostNumber: null };
-        console.log(`${LOG_PREFIX} AutoRefresh: cleared lastReplyContext`);
+            // Clear stored context after handling to avoid stale data
+            lastReplyContext = { topicId: null, parentPostNumber: null };
+            console.log(`${LOG_PREFIX} AutoRefresh: cleared lastReplyContext`);
 
             console.log(`${LOG_PREFIX} AutoRefresh: clicking loadMoreBtn immediately`);
             const ok = robustClick(loadMoreBtn);
@@ -622,7 +651,7 @@ export default apiInitializer("1.14.0", (api) => {
             // If button doesn't exist yet, set up an observer to wait for it
             console.log(`${LOG_PREFIX} AutoRefresh: waiting for loadMoreBtn via MutationObserver`);
             const observer = new MutationObserver(() => {
-              const btn = parentPostElement.querySelector(
+              const btn = ownerPostElement.querySelector(
                 "section.embedded-posts .load-more-replies"
               );
 
@@ -637,7 +666,7 @@ export default apiInitializer("1.14.0", (api) => {
               }
             });
 
-            observer.observe(parentPostElement, {
+            observer.observe(ownerPostElement, {
               childList: true,
               subtree: true
             });
