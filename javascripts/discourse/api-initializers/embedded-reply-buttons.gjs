@@ -689,6 +689,8 @@ export default apiInitializer("1.14.0", (api) => {
 
       console.log(`${LOG_PREFIX} AutoRefresh: app-events service available, binding composer:saved`);
       appEvents.on("composer:saved", (post) => {
+        try {
+
         console.log(`${LOG_PREFIX} AutoRefresh: binding composer:saved handler`);
         // Only process in owner comment mode
         const isOwnerCommentMode = document.body.dataset.ownerCommentMode === "true";
