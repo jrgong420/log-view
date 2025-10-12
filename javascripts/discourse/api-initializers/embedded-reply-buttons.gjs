@@ -70,14 +70,20 @@ export default apiInitializer("1.14.0", (api) => {
     try {
       el.focus?.();
       const opts = { bubbles: true, cancelable: true, view: window };
-      const sequence = [
-        new PointerEvent?.("pointerdown", { bubbles: true, cancelable: true }),
-        new MouseEvent("mousedown", opts),
-        new MouseEvent("mouseup", opts),
-        new MouseEvent("click", opts),
-      ].filter(Boolean);
+      const sequence = [];
+
+      // Add PointerEvent if available
+      if (typeof PointerEvent !== "undefined") {
+        sequence.push(new PointerEvent("pointerdown", { bubbles: true, cancelable: true }));
+      }
+
+      // Add standard mouse events
+      sequence.push(new MouseEvent("mousedown", opts));
+      sequence.push(new MouseEvent("mouseup", opts));
+      sequence.push(new MouseEvent("click", opts));
+
       for (const ev of sequence) {
-        const dispatched = el.dispatchEvent(ev);
+        el.dispatchEvent(ev);
         // If any listener prevented default and stopped propagation we still continue
       }
       return true;
