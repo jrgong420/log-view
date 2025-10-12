@@ -123,3 +123,55 @@ body.hide-reply-buttons-non-owners {
     }
   }
 }
+
+
+/* ===== Embedded Reply Buttons ===== */
+
+/*
+ * Styling for reply buttons injected into embedded posts
+ * These appear in section.embedded-posts when in filtered view
+ */
+
+.embedded-reply-button {
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  font-size: var(--font-down-1);
+  background-color: var(--tertiary);
+  color: var(--secondary);
+  border: 1px solid var(--tertiary);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: var(--tertiary-hover, var(--tertiary));
+    filter: brightness(0.9);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  &:active {
+    background-color: var(--tertiary-high, var(--tertiary));
+    filter: brightness(0.85);
+    transform: translateY(0);
+  }
+
+  &:focus {
+    outline: 2px solid var(--tertiary-low);
+    outline-offset: 2px;
+  }
+}
+
+/* Position the button nicely within embedded posts */
+section.embedded-posts {
+  .embedded-post {
+    position: relative;
+
+    .post-info,
+    .post-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+  }
+}
