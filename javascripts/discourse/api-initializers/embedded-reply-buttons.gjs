@@ -12,7 +12,8 @@ export default apiInitializer("1.14.0", (api) => {
   // Map to track active MutationObservers per post
   const activeObservers = new Map();
   // Support multiple markup variants for embedded rows
-  const EMBEDDED_ITEM_SELECTOR = "article.topic-post, .embedded-posts__post, .embedded-post, li.embedded-post, .embedded-post-item";
+  // Support multiple markup variants for embedded rows (broad but scoped to the section)
+  const EMBEDDED_ITEM_SELECTOR = "[data-post-id], [data-post-number], li[id^=\"post_\"], article[id^=\"post_\"], article.topic-post, .embedded-posts__post, .embedded-post, li.embedded-post, .embedded-post-item";
 
   // Function to inject reply buttons into embedded posts
   function injectEmbeddedReplyButtons(container) {
@@ -42,7 +43,7 @@ export default apiInitializer("1.14.0", (api) => {
       btn.title = "Reply to this post";
 
       // Find a good place to insert the button
-      const controls = item.querySelector(".post-controls, .post-actions, .post-info, .embedded-posts__post-footer");
+      const controls = item.querySelector(".post-controls, .post-actions, .post-info, .embedded-posts__post-footer, footer, .post-menu, .actions, .post-controls__inner");
 
       if (controls) {
         console.log(`${LOG_PREFIX} Item ${index + 1}: Appending to controls container`);
@@ -186,13 +187,28 @@ export default apiInitializer("1.14.0", (api) => {
     }
 
     console.log(`${LOG_PREFIX} Setting up child observer for section`, section.id || section);
-    const observer = new MutationObserver(() => {
+    const observer = new MutationObserver((mutationsList) => {
       const items = section.querySelectorAll(EMBEDDED_ITEM_SELECTOR);
       if (items.length > 0) {
         console.log(`${LOG_PREFIX} Section child observer detected ${items.length} items; injecting now`);
         injectEmbeddedReplyButtons(section);
         observer.disconnect();
         activeObservers.delete(section);
+      } else {
+        // Debug: log newly added nodes to refine selectors if needed
+        let logged = 0;
+        for (const m of mutationsList) {
+          if (m.type === "childList" && m.addedNodes && m.addedNodes.length) {
+            for (const n of Array.from(m.addedNodes)) {
+              if (logged >= 3) break;
+              const nodeName = (n.nodeName || "").toLowerCase();
+              const cls = n.className || "";
+              console.log(`${LOG_PREFIX} Section child added: <${nodeName}> ${cls}`);
+              logged++;
+            }
+          }
+          if (logged >= 3) break;
+        }
       }
     });
 
