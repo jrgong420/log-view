@@ -11,7 +11,8 @@ export default apiInitializer("1.14.0", (api) => {
 
   // Map to track active MutationObservers per post
   const activeObservers = new Map();
-  const EMBEDDED_ITEM_SELECTOR = ".embedded-posts__post, .embedded-post";
+  // Support multiple markup variants for embedded rows
+  const EMBEDDED_ITEM_SELECTOR = "article.topic-post, .embedded-posts__post, .embedded-post, li.embedded-post, .embedded-post-item";
 
   // Function to inject reply buttons into embedded posts
   function injectEmbeddedReplyButtons(container) {
@@ -41,17 +42,13 @@ export default apiInitializer("1.14.0", (api) => {
       btn.title = "Reply to this post";
 
       // Find a good place to insert the button
-      const postInfo = item.querySelector(".post-info");
-      const postActions = item.querySelector(".post-actions");
+      const controls = item.querySelector(".post-controls, .post-actions, .post-info, .embedded-posts__post-footer");
 
-      if (postActions) {
-        console.log(`${LOG_PREFIX} Item ${index + 1}: Appending to post-actions`);
-        postActions.appendChild(btn);
-      } else if (postInfo) {
-        console.log(`${LOG_PREFIX} Item ${index + 1}: Appending to post-info`);
-        postInfo.appendChild(btn);
+      if (controls) {
+        console.log(`${LOG_PREFIX} Item ${index + 1}: Appending to controls container`);
+        controls.appendChild(btn);
       } else {
-        console.log(`${LOG_PREFIX} Item ${index + 1}: Appending to item directly`);
+        console.log(`${LOG_PREFIX} Item ${index + 1}: Appending to item directly (no controls found)`);
         item.appendChild(btn);
       }
 
