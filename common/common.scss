@@ -132,8 +132,17 @@ body.hide-reply-buttons-non-owners {
  * This button appears once per section.embedded-posts, positioned next to the collapse button
  */
 
+/* Container for the reply and collapse buttons */
+.embedded-posts-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.5rem;
+}
+
 .embedded-reply-button {
-  margin-right: 0.5rem;
   padding: 0.25rem 0.75rem;
   font-size: var(--font-down-1);
   background-color: var(--tertiary);
@@ -144,7 +153,8 @@ body.hide-reply-buttons-non-owners {
   transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
-  vertical-align: middle;
+  justify-content: center;
+  white-space: nowrap;
 
   &:hover {
     background-color: var(--tertiary-hover, var(--tertiary));
@@ -165,14 +175,23 @@ body.hide-reply-buttons-non-owners {
   }
 }
 
-/* Ensure the section footer has proper layout for button positioning */
+/* Ensure the section has proper layout */
 section.embedded-posts {
-  /* If the section has a footer or controls area, ensure buttons are inline */
+  /* Ensure controls container is properly positioned */
+  > .embedded-posts-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  /* Legacy support for other footer containers */
   > footer,
   > .embedded-posts-footer,
   > .embedded-posts__footer {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
   }
 }

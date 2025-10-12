@@ -142,13 +142,45 @@ export default apiInitializer("1.14.0", (api) => {
 
     // Position the button next to the collapse button
     if (collapseButton) {
-      // Insert as a sibling right before the collapse button
-      collapseButton.parentElement.insertBefore(btn, collapseButton);
-      console.log(`${LOG_PREFIX} Injected reply button next to collapse button`);
+      // Find or create a container for the buttons
+      let buttonContainer = collapseButton.parentElement;
+
+      // Check if the parent is the section itself or a proper container
+      if (buttonContainer === section) {
+        // Collapse button is a direct child of section
+        // Create a wrapper div for both buttons
+        const wrapper = document.createElement("div");
+        wrapper.className = "embedded-posts-controls";
+
+        // Insert wrapper before collapse button
+        section.insertBefore(wrapper, collapseButton);
+
+        // Move collapse button into wrapper
+        wrapper.appendChild(collapseButton);
+
+        // Insert reply button before collapse button in wrapper
+        wrapper.insertBefore(btn, collapseButton);
+
+        console.log(`${LOG_PREFIX} Created button container and injected reply button`);
+      } else {
+        // Collapse button is already in a container
+        // Just insert our button before it
+        buttonContainer.insertBefore(btn, collapseButton);
+
+        // Ensure the container has proper flex layout
+        if (!buttonContainer.classList.contains("embedded-posts-controls")) {
+          buttonContainer.classList.add("embedded-posts-controls");
+        }
+
+        console.log(`${LOG_PREFIX} Injected reply button into existing container`);
+      }
     } else {
-      // Fallback: append to the section
-      section.appendChild(btn);
-      console.log(`${LOG_PREFIX} Injected reply button at end of section (collapse button not found)`);
+      // Fallback: create a container at the end of the section
+      const wrapper = document.createElement("div");
+      wrapper.className = "embedded-posts-controls";
+      wrapper.appendChild(btn);
+      section.appendChild(wrapper);
+      console.log(`${LOG_PREFIX} Created button container at end of section (collapse button not found)`);
     }
 
     // Mark section as having a button
