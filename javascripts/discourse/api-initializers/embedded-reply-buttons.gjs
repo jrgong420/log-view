@@ -36,6 +36,24 @@ export default apiInitializer("1.14.0", (api) => {
     return null;
   }
 
+  function extractPostIdFromElement(el) {
+    if (!el) return null;
+    const ds = el.dataset || {};
+    if (ds.postId) return Number(ds.postId);
+    const attrPI = el.getAttribute?.("data-post-id");
+    if (attrPI) return Number(attrPI);
+    // Look for descendant hints
+    const inner = el.querySelector?.("[data-post-id]");
+    if (inner) {
+      const ds2 = inner.dataset || {};
+      if (ds2.postId) return Number(ds2.postId);
+      const attr2 = inner.getAttribute?.("data-post-id");
+      if (attr2) return Number(attr2);
+    }
+    return null;
+  }
+
+
 
   // Function to inject reply buttons into embedded posts
   function injectEmbeddedReplyButtons(container) {
@@ -64,10 +82,14 @@ export default apiInitializer("1.14.0", (api) => {
       btn.textContent = "Reply";
       btn.title = "Reply to this post";
 
-      // Persist the post number on the button for robust retrieval
+      // Persist identifiers on the button for robust retrieval
       const candidateNumber = extractPostNumberFromElement(item);
       if (candidateNumber) {
         btn.dataset.postNumber = String(candidateNumber);
+      }
+      const candidateId = extractPostIdFromElement(item);
+      if (candidateId) {
+        btn.dataset.postId = String(candidateId);
       }
 
       // Find a good place to insert the button
@@ -287,6 +309,21 @@ export default apiInitializer("1.14.0", (api) => {
 
           // Determine the post_number for this embedded row
           let postNumber = extractPostNumberFromElement(rowContainer) || btn.dataset.postNumber;
+          if (!postNumber) {
+            // Fallback: resolve via post id if only data-post-id is present
+            const postId =
+              extractPostIdFromElement(rowContainer) ||
+              btn.dataset.postId ||
+              rowContainer.getAttribute?.("data-post-id");
+            console.log(`${LOG_PREFIX} Fallback post id from DOM/button:`, postId);
+            if (postId && topic?.postStream?.posts) {
+              const byId = topic.postStream.posts.find((p) => p.id === Number(postId));
+              if (byId) {
+                postNumber = byId.post_number;
+                console.log(`${LOG_PREFIX} Resolved post number via post id mapping:`, postNumber);
+              }
+            }
+          }
           console.log(`${LOG_PREFIX} Target embedded post number:`, postNumber);
 
           if (!postNumber) {
