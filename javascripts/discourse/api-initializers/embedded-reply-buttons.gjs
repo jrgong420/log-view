@@ -142,19 +142,37 @@ export default apiInitializer("1.14.0", (api) => {
 
     console.log(`${LOG_PREFIX} AutoScroll: searching for post #${lastCreatedPost.postNumber} in section`);
 
-    // Build selector to find the newly created post
+    // Build selectors to find the newly created post (by number and optional id)
     const selectors = [
       `[data-post-number="${lastCreatedPost.postNumber}"]`,
       `#post_${lastCreatedPost.postNumber}`,
       `#post-${lastCreatedPost.postNumber}`
     ];
 
+    if (lastCreatedPost.postId) {
+      selectors.push(`[data-post-id="${lastCreatedPost.postId}"]`);
+    }
+
     let foundElement = null;
     for (const selector of selectors) {
-      foundElement = section.querySelector(selector);
-      if (foundElement) {
+      const el = section.querySelector(selector);
+      if (el) {
+        foundElement = el;
         console.log(`${LOG_PREFIX} AutoScroll: found element with selector: ${selector}`);
         break;
+      }
+    }
+
+    // Fallback: scan all embedded items and match by extracted post number
+    if (!foundElement) {
+      const candidates = section.querySelectorAll(EMBEDDED_ITEM_SELECTOR);
+      for (const el of candidates) {
+        const pn = extractPostNumberFromElement(el);
+        if (pn === Number(lastCreatedPost.postNumber)) {
+          foundElement = el;
+          console.log(`${LOG_PREFIX} AutoScroll: found element by scanning candidates (post #${pn})`);
+          break;
+        }
       }
     }
 
@@ -681,6 +699,7 @@ export default apiInitializer("1.14.0", (api) => {
         lastCreatedPost = {
           topicId: createdPost?.topic_id,
           postNumber: createdPost?.post_number,
+          postId: createdPost?.id || createdPost?.post_id,
           replyToPostNumber: createdPost?.reply_to_post_number,
           timestamp: Date.now()
         };
