@@ -64,6 +64,33 @@ export default apiInitializer("1.14.0", (api) => {
     if (m) return Number(m[1]);
     return null;
   }
+  // Dispatch a robust synthetic click that works with widget/Glimmer handlers
+  function robustClick(el) {
+    if (!el) return false;
+    try {
+      el.focus?.();
+      const opts = { bubbles: true, cancelable: true, view: window };
+      const sequence = [
+        new PointerEvent?.("pointerdown", { bubbles: true, cancelable: true }),
+        new MouseEvent("mousedown", opts),
+        new MouseEvent("mouseup", opts),
+        new MouseEvent("click", opts),
+      ].filter(Boolean);
+      for (const ev of sequence) {
+        const dispatched = el.dispatchEvent(ev);
+        // If any listener prevented default and stopped propagation we still continue
+      }
+      return true;
+    } catch (e) {
+      try {
+        el.click();
+        return true;
+      } catch (e2) {
+        return false;
+      }
+    }
+  }
+
 
 
 
@@ -583,8 +610,8 @@ export default apiInitializer("1.14.0", (api) => {
         console.log(`${LOG_PREFIX} AutoRefresh: cleared lastReplyContext`);
 
             console.log(`${LOG_PREFIX} AutoRefresh: clicking loadMoreBtn immediately`);
-            // Click the button to refresh embedded posts
-            loadMoreBtn.click();
+            const ok = robustClick(loadMoreBtn);
+            console.log(`${LOG_PREFIX} AutoRefresh: robustClick(loadMoreBtn) =>`, ok);
           } else {
             // If button doesn't exist yet, set up an observer to wait for it
             console.log(`${LOG_PREFIX} AutoRefresh: waiting for loadMoreBtn via MutationObserver`);
@@ -598,7 +625,8 @@ export default apiInitializer("1.14.0", (api) => {
                 // Clear stored context before clicking
                 lastReplyContext = { topicId: null, parentPostNumber: null };
                 console.log(`${LOG_PREFIX} AutoRefresh: cleared lastReplyContext`);
-                btn.click();
+                const ok2 = robustClick(btn);
+                console.log(`${LOG_PREFIX} AutoRefresh: robustClick(observer btn) =>`, ok2);
                 observer.disconnect();
               }
             });
