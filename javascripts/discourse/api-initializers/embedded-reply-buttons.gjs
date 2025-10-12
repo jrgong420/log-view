@@ -753,9 +753,11 @@ export default apiInitializer("1.14.0", (api) => {
         }
 
         // Strategy 1: Try to find the embedded post element by data-post-number or data-post-id inside sections
+        // Hoist sections outside the conditional and iterate safely
+        const allEmbeddedSections = document.querySelectorAll("section.embedded-posts");
+        console.log(`${LOG_PREFIX} AutoRefresh: found ${allEmbeddedSections.length} embedded-posts sections`);
+
         if (!ownerPostElement) {
-          const allEmbeddedSections = document.querySelectorAll("section.embedded-posts");
-          console.log(`${LOG_PREFIX} AutoRefresh: found ${allEmbeddedSections.length} embedded-posts sections`);
           for (const section of allEmbeddedSections) {
             const embeddedPost = section.querySelector(
               `[data-post-number="${parentPostNumber}"], #post_${parentPostNumber}, #post-${parentPostNumber}`
@@ -765,20 +767,6 @@ export default apiInitializer("1.14.0", (api) => {
               console.log(`${LOG_PREFIX} AutoRefresh: found embedded post #${parentPostNumber} inside owner post #${ownerPostElement?.dataset?.postNumber}`);
               break;
             }
-          }
-        }
-
-        for (const section of allEmbeddedSections) {
-          // Check if this section contains an embedded post with our target post number
-          const embeddedPost = section.querySelector(
-            `[data-post-number="${parentPostNumber}"], [data-post-id], #post_${parentPostNumber}, #post-${parentPostNumber}`
-          );
-
-          if (embeddedPost) {
-            // Found it! Now find the owner's post that contains this section
-            ownerPostElement = section.closest("article.topic-post");
-            console.log(`${LOG_PREFIX} AutoRefresh: found embedded post #${parentPostNumber} inside owner post #${ownerPostElement?.dataset?.postNumber}`);
-            break;
           }
         }
 
@@ -903,6 +891,9 @@ export default apiInitializer("1.14.0", (api) => {
             }, 5000);
           }
         });
+      } catch (err) {
+        console.error(`${LOG_PREFIX} AutoRefresh: error inside composer:saved`, err);
+      }
       });
 
       composerEventsBound = true;
