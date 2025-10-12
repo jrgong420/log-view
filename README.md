@@ -10,6 +10,7 @@ A Discourse theme component that automatically filters topics in configured cate
 - **Mobile & Desktop support**: Works seamlessly on both mobile and desktop layouts
 - **Group-based access control**: Restrict theme component functionality to specific user groups
 - **Reply button hiding**: Hide top-level reply buttons from non-owners in configured categories (UI-only restriction)
+- **Embedded reply buttons**: Reply to embedded posts directly from filtered view without losing context
 
 ## Installation
 
@@ -47,6 +48,26 @@ When enabled, hides top-level reply buttons (timeline and topic footer) from all
 - For true access control, use Discourse's built-in category permissions
 
 **Use case**: Reduce visual clutter and gently encourage users to use post-level replies in journal-style topics, while still allowing flexibility for those who need it.
+
+#### Embedded Reply Buttons
+**Type**: Boolean (automatically enabled)
+**Default**: true
+
+When in filtered view (owner comment mode), reply buttons are automatically added to embedded posts (posts from other users shown in `section.embedded-posts`). These buttons allow users to reply to embedded posts without leaving the filtered view.
+
+**Features**:
+- Reply buttons appear on all embedded posts in filtered view
+- Clicking a button opens the Discourse composer with correct reply context
+- User remains on the filtered view page (no navigation)
+- Filtered view is maintained after posting the reply
+- Comprehensive console logging for debugging
+
+**Technical details**:
+- Uses Discourse Plugin API v1.14.0+
+- Event delegation for SPA compatibility
+- Opens composer via `service:composer` with `skipJumpOnSave: true`
+- See `docs/EMBEDDED_REPLY_BUTTONS_IMPLEMENTATION.md` for full technical documentation
+- See `docs/EMBEDDED_REPLY_BUTTONS_TESTING.md` for testing procedures
 
 ### Group-Based Access Control
 
@@ -134,6 +155,7 @@ log-view/
 ├── javascripts/
 │   └── discourse/
 │       ├── api-initializers/
+│       │   ├── embedded-reply-buttons.gjs  # Embedded reply buttons feature
 │       │   ├── group-access-control.gjs    # Group access control logic
 │       │   ├── hide-reply-buttons.gjs      # Reply button hiding logic
 │       │   ├── log-view.gjs                # Main initializer (placeholder)
@@ -143,8 +165,11 @@ log-view/
 │       │   └── owner-toggle-button.gjs     # Toggle button component
 │       └── lib/
 │           └── group-access-utils.js       # Shared utilities (access check, category parsing)
-└── common/
-    └── common.scss                    # Shared styles
+├── common/
+│   └── common.scss                    # Shared styles
+└── docs/
+    ├── EMBEDDED_REPLY_BUTTONS_IMPLEMENTATION.md  # Technical documentation
+    └── EMBEDDED_REPLY_BUTTONS_TESTING.md         # Testing guide
 ```
 
 ### Testing Checklist
@@ -164,14 +189,17 @@ When testing group-based access control:
 
 ### Debug Logging
 
-The theme includes debug logging for group access control, owner filtering, and reply button hiding. To view logs:
+The theme includes comprehensive debug logging for all features. To view logs:
 
 1. Open your browser's developer console (F12)
 2. Look for messages prefixed with:
+   - `[Embedded Reply Buttons]` - Embedded reply button injection and composer opening
    - `[Group Access Control]` - Group membership checks
    - `[Owner Comments]` - Owner filtering logic
    - `[Hide Reply Buttons]` - Reply button hiding decisions
 3. To disable debug logging, edit the initializer files and set `DEBUG = false`
+
+**Tip**: Filter console output by feature name (e.g., `[Embedded Reply Buttons]`) to focus on specific functionality.
 
 ## License
 
