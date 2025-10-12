@@ -8,6 +8,7 @@ export default apiInitializer("1.14.0", (api) => {
 
   // Map to track active MutationObservers per post
   const activeObservers = new Map();
+  const LOG_PREFIX = "[Embedded Reply Buttons]";
   // Support multiple markup variants for embedded rows
   // Support multiple markup variants for embedded rows (broad but scoped to the section)
   const EMBEDDED_ITEM_SELECTOR = "[data-post-id], [data-post-number], li[id^=\"post_\"], article[id^=\"post_\"], article.topic-post, .embedded-posts__post, .embedded-post, li.embedded-post, .embedded-post-item";
@@ -490,21 +491,28 @@ export default apiInitializer("1.14.0", (api) => {
 
   // Auto-refresh embedded posts after reply submission
   if (!composerEventsBound) {
+    console.log(`${LOG_PREFIX} AutoRefresh: initializing composer event listeners`);
     const appEvents = api.container.lookup("service:app-events");
 
     if (appEvents) {
+      console.log(`${LOG_PREFIX} AutoRefresh: app-events service available, binding composer:saved`);
       appEvents.on("composer:saved", (post) => {
+        console.log(`${LOG_PREFIX} AutoRefresh: binding composer:saved handler`);
         // Only process in owner comment mode
         const isOwnerCommentMode = document.body.dataset.ownerCommentMode === "true";
+        console.log(`${LOG_PREFIX} AutoRefresh: composer:saved fired`, { id: post?.id, post_number: post?.post_number, reply_to_post_number: post?.reply_to_post_number, isOwnerCommentMode });
         if (!isOwnerCommentMode) {
+          console.log(`${LOG_PREFIX} AutoRefresh: skipping - not in owner comment mode`);
           return;
         }
 
         // Only process if this is a reply (has reply_to_post_number)
         const parentPostNumber = post.reply_to_post_number;
         if (!parentPostNumber) {
+          console.log(`${LOG_PREFIX} AutoRefresh: skipping - no reply_to_post_number on saved post`);
           return;
         }
+        console.log(`${LOG_PREFIX} AutoRefresh: target parent post #${parentPostNumber}`);
 
         // Find the parent post element
         const parentPostElement = document.querySelector(
@@ -512,26 +520,34 @@ export default apiInitializer("1.14.0", (api) => {
         );
 
         if (!parentPostElement) {
+          console.log(`${LOG_PREFIX} AutoRefresh: parent post element not found in DOM for #${parentPostNumber}`);
           return;
         }
+        console.log(`${LOG_PREFIX} AutoRefresh: found parent post element for #${parentPostNumber}`);
 
         // Wait for DOM to update, then trigger "load more replies"
         schedule("afterRender", () => {
           // Try to find the "load more replies" button
+          console.log(`${LOG_PREFIX} AutoRefresh: schedule(afterRender) start for parent #${parentPostNumber}`);
           const embeddedSection = parentPostElement.querySelector("section.embedded-posts");
+          console.log(`${LOG_PREFIX} AutoRefresh: embeddedSection ${embeddedSection ? "found" : "NOT found"}`);
           const loadMoreBtn = embeddedSection?.querySelector(".load-more-replies");
+          console.log(`${LOG_PREFIX} AutoRefresh: loadMoreBtn ${loadMoreBtn ? "found" : "NOT found"}`);
 
           if (loadMoreBtn) {
+            console.log(`${LOG_PREFIX} AutoRefresh: clicking loadMoreBtn immediately`);
             // Click the button to refresh embedded posts
             loadMoreBtn.click();
           } else {
             // If button doesn't exist yet, set up an observer to wait for it
+            console.log(`${LOG_PREFIX} AutoRefresh: waiting for loadMoreBtn via MutationObserver`);
             const observer = new MutationObserver(() => {
               const btn = parentPostElement.querySelector(
                 "section.embedded-posts .load-more-replies"
               );
 
               if (btn) {
+                console.log(`${LOG_PREFIX} AutoRefresh: observer found loadMoreBtn, clicking`);
                 btn.click();
                 observer.disconnect();
               }
@@ -543,7 +559,10 @@ export default apiInitializer("1.14.0", (api) => {
             });
 
             // Timeout to prevent infinite observation (5 seconds)
-            setTimeout(() => observer.disconnect(), 5000);
+            setTimeout(() => {
+              console.log(`${LOG_PREFIX} AutoRefresh: observer timeout - loadMoreBtn not found within 5s`);
+              observer.disconnect();
+            }, 5000);
           }
         });
       });
