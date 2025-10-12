@@ -379,15 +379,49 @@ export default apiInitializer("1.14.0", (api) => {
           }
 
           // Find the post model from the topic's post stream
-          const parentPost = topic.postStream?.posts?.find(
+          let parentPost = topic.postStream?.posts?.find(
             (p) => p.post_number === Number(postNumber)
           );
 
           console.log(`${LOG_PREFIX} Target embedded post model:`, parentPost);
 
+          // If post is not in the stream, load it on-demand
+          if (!parentPost && topic.postStream) {
+            console.log(
+              `${LOG_PREFIX} Post ${postNumber} not in stream, loading on-demand...`
+            );
+            console.log(
+              `${LOG_PREFIX} Available posts before load:`,
+              topic.postStream.posts?.map((p) => p.post_number)
+            );
+
+            try {
+              // Load the specific post into the stream
+              await topic.postStream.loadPostByPostNumber(Number(postNumber));
+
+              // Try to find it again after loading
+              parentPost = topic.postStream.posts?.find(
+                (p) => p.post_number === Number(postNumber)
+              );
+
+              if (parentPost) {
+                console.log(`${LOG_PREFIX} Successfully loaded post ${postNumber}`);
+              } else {
+                console.error(
+                  `${LOG_PREFIX} Post ${postNumber} still not found after loading`
+                );
+              }
+            } catch (loadError) {
+              console.error(
+                `${LOG_PREFIX} Failed to load post ${postNumber}:`,
+                loadError
+              );
+            }
+          }
+
           if (!parentPost) {
             console.error(
-              `${LOG_PREFIX} Could not find post model for post number ${postNumber}`
+              `${LOG_PREFIX} Could not find or load post model for post number ${postNumber}`
             );
             console.log(
               `${LOG_PREFIX} Available posts:`,
