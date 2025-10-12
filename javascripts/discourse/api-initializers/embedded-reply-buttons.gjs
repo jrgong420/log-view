@@ -65,7 +65,12 @@ export default apiInitializer("1.14.0", (api) => {
 
   // Function to setup MutationObserver for a specific post
   function setupPostObserver(postElement) {
-    const postId = postElement.id || postElement.dataset.postId || postElement.dataset.postNumber || "unknown";
+    const postId = postElement?.id || postElement?.dataset?.postId || postElement?.dataset?.postNumber || "unknown";
+
+    if (!postElement) {
+      console.warn(`${LOG_PREFIX} setupPostObserver called without a valid postElement`);
+      return;
+    }
 
     // Don't create duplicate observers
     if (activeObservers.has(postElement)) {
@@ -87,11 +92,15 @@ export default apiInitializer("1.14.0", (api) => {
               if (node.matches && node.matches("section.embedded-posts")) {
                 console.log(`${LOG_PREFIX} Embedded posts section detected in post ${postId}`);
                 injectEmbeddedReplyButtons(node);
+                observer.disconnect();
+                activeObservers.delete(postElement);
               } else if (node.querySelector) {
                 const embeddedSections = node.querySelectorAll("section.embedded-posts");
                 if (embeddedSections.length > 0) {
                   console.log(`${LOG_PREFIX} Found ${embeddedSections.length} embedded sections in added node`);
                   embeddedSections.forEach(section => injectEmbeddedReplyButtons(section));
+                  observer.disconnect();
+                  activeObservers.delete(postElement);
                 }
               }
             }
@@ -108,6 +117,47 @@ export default apiInitializer("1.14.0", (api) => {
 
     activeObservers.set(postElement, observer);
     console.log(`${LOG_PREFIX} Observer started for post ${postId}`);
+  }
+
+  // Function to observe stream for a specific embedded section id (fallback)
+  function setupSectionObserverById(sectionId) {
+    if (!sectionId) {
+      console.warn(`${LOG_PREFIX} setupSectionObserverById called without sectionId`);
+      return;
+    }
+    const targetSelector = `#${CSS.escape(sectionId)}`;
+    const stream = document.querySelector("#topic .post-stream, .post-stream");
+    if (!stream) {
+      console.warn(`${LOG_PREFIX} Could not find .post-stream container to observe for id`, sectionId);
+      return;
+    }
+
+    // Avoid duplicate observers on the same stream+id by keying the map with the selector
+    if (activeObservers.has(targetSelector)) {
+      console.log(`${LOG_PREFIX} Observer already exists for section id ${sectionId}`);
+      return;
+    }
+
+    console.log(`${LOG_PREFIX} Setting up stream observer for section id ${sectionId}`);
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === "childList") {
+          // Check if our target section now exists
+          const section = stream.querySelector(targetSelector);
+          if (section) {
+            console.log(`${LOG_PREFIX} Detected target section #${sectionId} in stream; injecting`);
+            injectEmbeddedReplyButtons(section);
+            observer.disconnect();
+            activeObservers.delete(targetSelector);
+            return;
+          }
+        }
+      }
+    });
+
+    observer.observe(stream, { childList: true, subtree: true });
+    activeObservers.set(targetSelector, observer);
+    console.log(`${LOG_PREFIX} Stream observer started for section id ${sectionId}`);
   }
 
   // Global delegated click handler for embedded reply buttons
@@ -225,8 +275,8 @@ export default apiInitializer("1.14.0", (api) => {
 
     document.addEventListener("click", (e) => {
       // Check if click is on show-replies button or load-more-replies
-      const showRepliesBtn = e.target?.closest?.(".post-controls .show-replies");
-      const loadMoreBtn = e.target?.closest?.(".embedded-posts .load-more-replies, .embedded-posts button");
+      const showRepliesBtn = e.target?.closest?.(".post-controls .show-replies, .show-replies, .post-action-menu__show-replies");
+      const loadMoreBtn = e.target?.closest?.(".embedded-posts .load-more-replies");
 
       if (!showRepliesBtn && !loadMoreBtn) return;
 
@@ -240,10 +290,31 @@ export default apiInitializer("1.14.0", (api) => {
         return;
       }
 
-      // Find the parent post element
-      const postElement = clickedBtn.closest("article.topic-post");
+      // Try to find the parent post element
+      let postElement = clickedBtn.closest("article.topic-post");
       if (!postElement) {
-        console.warn(`${LOG_PREFIX} Could not find parent post element`);
+        // Fallback 1: any ancestor with data-post-number
+        postElement = clickedBtn.closest("[data-post-number]");
+      }
+
+      // Fallback 2: derive from aria-controls
+      const controlsId = clickedBtn.getAttribute("aria-controls");
+      let derivedPostNumber = null;
+      if (!postElement && controlsId) {
+        const m = controlsId.match(/--(\d+)$/);
+        if (m) {
+          derivedPostNumber = m[1];
+          console.log(`${LOG_PREFIX} Derived post number from aria-controls:`, derivedPostNumber);
+          postElement = document.querySelector(`article.topic-post[data-post-number="${derivedPostNumber}"]`) ||
+                        document.querySelector(`[data-post-number="${derivedPostNumber}"]`);
+        }
+      }
+
+      if (!postElement) {
+        console.warn(`${LOG_PREFIX} Could not find parent post element; will observe stream for section id`, controlsId);
+        if (controlsId) {
+          setupSectionObserverById(controlsId);
+        }
         return;
       }
 
@@ -259,6 +330,10 @@ export default apiInitializer("1.14.0", (api) => {
         } else {
           console.log(`${LOG_PREFIX} Embedded section not yet present, setting up observer for post ${postId}`);
           setupPostObserver(postElement);
+          // Also set up a fallback observer using aria-controls if available
+          if (controlsId) {
+            setupSectionObserverById(controlsId);
+          }
         }
       });
 
