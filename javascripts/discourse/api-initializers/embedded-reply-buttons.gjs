@@ -11,19 +11,20 @@ export default apiInitializer("1.14.0", (api) => {
 
   // Map to track active MutationObservers per post
   const activeObservers = new Map();
+  const EMBEDDED_ITEM_SELECTOR = ".embedded-posts__post, .embedded-post";
 
   // Function to inject reply buttons into embedded posts
   function injectEmbeddedReplyButtons(container) {
     console.log(`${LOG_PREFIX} Injecting buttons into container:`, container);
 
-    const embeddedItems = container.querySelectorAll(".embedded-post");
-    console.log(`${LOG_PREFIX} Found ${embeddedItems.length} embedded post items`);
+    const embeddedItems = container.querySelectorAll(EMBEDDED_ITEM_SELECTOR);
+    console.log(`${LOG_PREFIX} Found ${embeddedItems.length} embedded post items (selector: ${EMBEDDED_ITEM_SELECTOR})`);
 
     let injectedCount = 0;
     let skippedCount = 0;
 
     embeddedItems.forEach((item, index) => {
-      // Skip if button already injected
+      // Skip if already has button
       if (item.dataset.replyBtnBound) {
         console.log(`${LOG_PREFIX} Item ${index + 1}: Button already bound, skipping`);
         skippedCount++;
@@ -61,6 +62,7 @@ export default apiInitializer("1.14.0", (api) => {
     });
 
     console.log(`${LOG_PREFIX} Injection complete: ${injectedCount} injected, ${skippedCount} skipped`);
+    return { total: embeddedItems.length, injected: injectedCount };
   }
 
   // Function to setup MutationObserver for a specific post
@@ -91,14 +93,24 @@ export default apiInitializer("1.14.0", (api) => {
               // Check if the added node is or contains section.embedded-posts
               if (node.matches && node.matches("section.embedded-posts")) {
                 console.log(`${LOG_PREFIX} Embedded posts section detected in post ${postId}`);
-                injectEmbeddedReplyButtons(node);
+                const res = injectEmbeddedReplyButtons(node);
+                if (!res || res.total === 0) {
+                  console.log(`${LOG_PREFIX} No embedded items yet in section; observing section children...`);
+                  setupSectionChildObserver(node);
+                }
                 observer.disconnect();
                 activeObservers.delete(postElement);
               } else if (node.querySelector) {
                 const embeddedSections = node.querySelectorAll("section.embedded-posts");
                 if (embeddedSections.length > 0) {
                   console.log(`${LOG_PREFIX} Found ${embeddedSections.length} embedded sections in added node`);
-                  embeddedSections.forEach(section => injectEmbeddedReplyButtons(section));
+                  embeddedSections.forEach(section => {
+                    const res = injectEmbeddedReplyButtons(section);
+                    if (!res || res.total === 0) {
+                      console.log(`${LOG_PREFIX} No embedded items yet in section; observing section children...`);
+                      setupSectionChildObserver(section);
+                    }
+                  });
                   observer.disconnect();
                   activeObservers.delete(postElement);
                 }
@@ -146,12 +158,43 @@ export default apiInitializer("1.14.0", (api) => {
           const section = stream.querySelector(targetSelector);
           if (section) {
             console.log(`${LOG_PREFIX} Detected target section #${sectionId} in stream; injecting`);
-            injectEmbeddedReplyButtons(section);
+            const res = injectEmbeddedReplyButtons(section);
+            if (!res || res.total === 0) {
+              console.log(`${LOG_PREFIX} No embedded items yet in section; observing section children...`);
+              setupSectionChildObserver(section);
+            }
             observer.disconnect();
             activeObservers.delete(targetSelector);
             return;
           }
         }
+  // Observe a specific embedded section until items appear, then inject and stop
+  function setupSectionChildObserver(section) {
+    if (!section) {
+      console.warn(`${LOG_PREFIX} setupSectionChildObserver called without section`);
+      return;
+    }
+    if (activeObservers.has(section)) {
+      console.log(`${LOG_PREFIX} Section observer already exists for`, section.id || section);
+      return;
+    }
+
+    console.log(`${LOG_PREFIX} Setting up child observer for section`, section.id || section);
+    const observer = new MutationObserver(() => {
+      const items = section.querySelectorAll(EMBEDDED_ITEM_SELECTOR);
+      if (items.length > 0) {
+        console.log(`${LOG_PREFIX} Section child observer detected ${items.length} items; injecting now`);
+        injectEmbeddedReplyButtons(section);
+        observer.disconnect();
+        activeObservers.delete(section);
+      }
+    });
+
+    observer.observe(section, { childList: true, subtree: true });
+    activeObservers.set(section, observer);
+    console.log(`${LOG_PREFIX} Section child observer started for`, section.id || section);
+  }
+
       }
     });
 
@@ -326,7 +369,11 @@ export default apiInitializer("1.14.0", (api) => {
         const existingSection = postElement.querySelector("section.embedded-posts");
         if (existingSection) {
           console.log(`${LOG_PREFIX} Embedded section already present in post ${postId}, injecting immediately`);
-          injectEmbeddedReplyButtons(existingSection);
+          const res = injectEmbeddedReplyButtons(existingSection);
+          if (!res || res.total === 0) {
+            console.log(`${LOG_PREFIX} No embedded items yet; observing section children...`);
+            setupSectionChildObserver(existingSection);
+          }
         } else {
           console.log(`${LOG_PREFIX} Embedded section not yet present, setting up observer for post ${postId}`);
           setupPostObserver(postElement);
@@ -388,7 +435,11 @@ export default apiInitializer("1.14.0", (api) => {
         console.log(
           `${LOG_PREFIX} Processing already-expanded section ${sectionIndex + 1}...`
         );
-        injectEmbeddedReplyButtons(section);
+        const res = injectEmbeddedReplyButtons(section);
+        if (!res || res.total === 0) {
+          console.log(`${LOG_PREFIX} No embedded items yet; observing section children...`);
+          setupSectionChildObserver(section);
+        }
       });
 
       console.log(`${LOG_PREFIX} Button injection complete`);
