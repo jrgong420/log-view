@@ -380,87 +380,154 @@ export default apiInitializer("1.14.0", (api) => {
             return;
           }
 
-          // Find the post model from the topic's post stream
-          let parentPost = topic.postStream?.posts?.find(
+          // Find the embedded post model from the topic's post stream
+          let embeddedPost = topic.postStream?.posts?.find(
             (p) => p.post_number === Number(postNumber)
           );
 
-          console.log(`${LOG_PREFIX} Target embedded post model:`, parentPost);
+          console.log(`${LOG_PREFIX} Target embedded post model:`, embeddedPost);
 
-          // If post is not in the stream, try alternative approaches
-          if (!parentPost) {
+          // If post is not in the stream, try fetching it
+          if (!embeddedPost) {
             console.log(
-              `${LOG_PREFIX} Post ${postNumber} not in stream, trying alternative approaches...`
+              `${LOG_PREFIX} Post ${postNumber} not in stream, trying to fetch...`
             );
             console.log(
               `${LOG_PREFIX} Available posts in stream:`,
               topic.postStream?.posts?.map((p) => p.post_number)
             );
 
-            // Approach 1: Try to open composer with just the post number
-            // The composer should be able to handle this and fetch the post data itself
-            console.log(
-              `${LOG_PREFIX} Attempting to open composer with post number ${postNumber}...`
-            );
-
-            try {
-              await composer.open({
-                action: "reply",
-                topic: topic,
-                draftKey: topic.draft_key,
-                draftSequence: topic.draft_sequence,
-                skipJumpOnSave: true,
-                // Try using post number directly - composer may fetch the post itself
-                replyToPostNumber: Number(postNumber),
-              });
-
-              console.log(
-                `${LOG_PREFIX} Composer opened successfully with post number ${postNumber}`
-              );
-              return; // Exit early if this works
-            } catch (composerError) {
-              console.error(
-                `${LOG_PREFIX} Failed to open composer with replyToPostNumber:`,
-                composerError
-              );
-            }
-
-            // Approach 2: Try fetching the post from the server and using it
+            // Try fetching the embedded post from the server
             if (postId) {
               console.log(
-                `${LOG_PREFIX} Attempting to fetch post ${postId} from server...`
+                `${LOG_PREFIX} Attempting to fetch embedded post ${postId} from server...`
               );
               try {
                 const store = api.container.lookup("service:store");
                 const fetchedPost = await store.find("post", postId);
 
                 if (fetchedPost) {
-                  console.log(`${LOG_PREFIX} Successfully fetched post:`, fetchedPost);
-                  parentPost = fetchedPost;
+                  console.log(`${LOG_PREFIX} Successfully fetched embedded post:`, fetchedPost);
+                  embeddedPost = fetchedPost;
                 } else {
                   console.error(`${LOG_PREFIX} Fetched post is null/undefined`);
                 }
               } catch (fetchError) {
                 console.error(
-                  `${LOG_PREFIX} Failed to fetch post from server:`,
+                  `${LOG_PREFIX} Failed to fetch embedded post from server:`,
                   fetchError
                 );
               }
             }
 
             // If still no post, give up
-            if (!parentPost) {
+            if (!embeddedPost) {
               console.error(
-                `${LOG_PREFIX} All approaches failed - cannot open composer for post ${postNumber}`
+                `${LOG_PREFIX} Cannot find embedded post ${postNumber} - cannot determine reply target`
               );
               return;
             }
           }
 
-          // At this point we have a valid parentPost
-          console.log(`${LOG_PREFIX} Using post model:`, parentPost);
-          console.log(`${LOG_PREFIX} Post number:`, parentPost.post_number);
-          console.log(`${LOG_PREFIX} Post id:`, parentPost.id);
+          // Now we have the embedded post - find the parent post it was replying to
+          console.log(`${LOG_PREFIX} Embedded post:`, embeddedPost);
+          console.log(`${LOG_PREFIX} Embedded post number:`, embeddedPost.post_number);
+          console.log(`${LOG_PREFIX} Embedded post id:`, embeddedPost.id);
+          console.log(`${LOG_PREFIX} Embedded post reply_to_post_number:`, embeddedPost.reply_to_post_number);
+
+          // The parent post is the one that the embedded post was replying to
+          let parentPostNumber = embeddedPost.reply_to_post_number;
+
+          if (!parentPostNumber) {
+            console.warn(
+              `${LOG_PREFIX} Embedded post ${embeddedPost.post_number} has no reply_to_post_number - it may be a top-level post. Replying to topic instead.`
+            );
+            // If the embedded post isn't replying to anything, just reply to the topic
+            parentPostNumber = null;
+          } else {
+            console.log(`${LOG_PREFIX} Parent post number (reply target):`, parentPostNumber);
+          }
+
+          // Find the parent post model
+          let parentPost = null;
+          if (parentPostNumber) {
+            parentPost = topic.postStream?.posts?.find(
+              (p) => p.post_number === Number(parentPostNumber)
+            );
+
+            console.log(`${LOG_PREFIX} Parent post model:`, parentPost);
+
+            // If parent post is not in the stream, try fetching it
+            if (!parentPost) {
+              console.log(
+                `${LOG_PREFIX} Parent post ${parentPostNumber} not in stream, trying to fetch...`
+              );
+
+              // We need the parent post ID to fetch it
+              // Try to find it in the embedded post's data or fetch by post number
+              try {
+                const store = api.container.lookup("service:store");
+
+                // Try to find the parent post by querying the topic's posts
+                // This is a workaround since we only have the post number
+                const topicPosts = await store.query("post", {
+                  topic_id: topic.id,
+                  post_ids: [parentPostNumber] // This might not work, but worth trying
+                });
+
+                if (topicPosts && topicPosts.length > 0) {
+                  parentPost = topicPosts.find(p => p.post_number === parentPostNumber);
+                  console.log(`${LOG_PREFIX} Successfully fetched parent post:`, parentPost);
+                }
+              } catch (fetchError) {
+                console.warn(
+                  `${LOG_PREFIX} Failed to fetch parent post from server:`,
+                  fetchError
+                );
+              }
+
+              // If we still don't have the parent post, try opening composer with just the post number
+              if (!parentPost) {
+                console.log(
+                  `${LOG_PREFIX} Attempting to open composer with parent post number ${parentPostNumber}...`
+                );
+
+                try {
+                  await composer.open({
+                    action: "reply",
+                    topic: topic,
+                    draftKey: topic.draft_key,
+                    draftSequence: topic.draft_sequence,
+                    skipJumpOnSave: true,
+                    replyToPostNumber: Number(parentPostNumber),
+                  });
+
+                  console.log(
+                    `${LOG_PREFIX} Composer opened successfully with parent post number ${parentPostNumber}`
+                  );
+                  return; // Exit early if this works
+                } catch (composerError) {
+                  console.error(
+                    `${LOG_PREFIX} Failed to open composer with replyToPostNumber:`,
+                    composerError
+                  );
+                  console.error(
+                    `${LOG_PREFIX} Cannot open composer - parent post ${parentPostNumber} not available`
+                  );
+                  return;
+                }
+              }
+            }
+          }
+
+          // At this point we have a valid parentPost (or null for topic-level reply)
+          if (parentPost) {
+            console.log(`${LOG_PREFIX} Using parent post as reply target:`, parentPost);
+            console.log(`${LOG_PREFIX} Parent post number:`, parentPost.post_number);
+            console.log(`${LOG_PREFIX} Parent post id:`, parentPost.id);
+          } else {
+            console.log(`${LOG_PREFIX} No parent post - replying to topic`);
+          }
 
           // Get draft key and sequence from topic
           const draftKey = topic.draft_key;
@@ -469,25 +536,37 @@ export default apiInitializer("1.14.0", (api) => {
           console.log(`${LOG_PREFIX} Draft key:`, draftKey);
           console.log(`${LOG_PREFIX} Draft sequence:`, draftSequence);
 
-          console.log(`${LOG_PREFIX} Opening composer with options:`, {
-            action: "reply",
-            topicId: topic.id,
-            postId: parentPost.id,
-            postNumber: parentPost.post_number,
-            draftKey,
-            draftSequence,
-            skipJumpOnSave: true,
-          });
-
-          // Open the composer
-          await composer.open({
+          const composerOptions = {
             action: "reply",
             topic: topic,
-            post: parentPost,
             draftKey: draftKey,
             draftSequence: draftSequence,
             skipJumpOnSave: true,
-          });
+          };
+
+          if (parentPost) {
+            composerOptions.post = parentPost;
+            console.log(`${LOG_PREFIX} Opening composer with parent post:`, {
+              action: "reply",
+              topicId: topic.id,
+              postId: parentPost.id,
+              postNumber: parentPost.post_number,
+              draftKey,
+              draftSequence,
+              skipJumpOnSave: true,
+            });
+          } else {
+            console.log(`${LOG_PREFIX} Opening composer for topic-level reply:`, {
+              action: "reply",
+              topicId: topic.id,
+              draftKey,
+              draftSequence,
+              skipJumpOnSave: true,
+            });
+          }
+
+          // Open the composer
+          await composer.open(composerOptions);
 
           console.log(`${LOG_PREFIX} Composer opened successfully`);
         } catch (error) {
