@@ -175,6 +175,14 @@ body.hide-reply-buttons-non-owners {
   }
 }
 
+/* Desktop-specific positioning adjustments */
+@media screen and (min-width: 769px) {
+  section.embedded-posts > .embedded-posts-controls .embedded-reply-button {
+    position: relative;
+    left: 64px;
+  }
+}
+
 /* Ensure the section has proper layout */
 section.embedded-posts {
   /* Ensure controls container is properly positioned */
@@ -222,6 +230,9 @@ section.embedded-posts {
   }
   section.embedded-posts > .embedded-posts-controls .embedded-reply-button {
     order: 2;
+    position: relative;
+    left: 18px;
+    bottom: 9px;
   }
 
   /* Normalize the collapse button box so it aligns with the Reply button */
