@@ -397,11 +397,6 @@ export default apiInitializer("1.14.0", (api) => {
               topic.postStream?.posts?.map((p) => p.post_number)
             );
 
-            // Import Composer model for action constants
-            const { default: Composer } = await import(
-              "discourse/models/composer"
-            );
-
             // Approach 1: Try to open composer with just the post number
             // The composer should be able to handle this and fetch the post data itself
             console.log(
@@ -410,7 +405,7 @@ export default apiInitializer("1.14.0", (api) => {
 
             try {
               await composer.open({
-                action: Composer.REPLY,
+                action: "reply",
                 topic: topic,
                 draftKey: topic.draft_key,
                 draftSequence: topic.draft_sequence,
@@ -474,13 +469,8 @@ export default apiInitializer("1.14.0", (api) => {
           console.log(`${LOG_PREFIX} Draft key:`, draftKey);
           console.log(`${LOG_PREFIX} Draft sequence:`, draftSequence);
 
-          // Import Composer model for action constants (if not already imported)
-          const { default: Composer } = await import(
-            "discourse/models/composer"
-          );
-
           console.log(`${LOG_PREFIX} Opening composer with options:`, {
-            action: "REPLY",
+            action: "reply",
             topicId: topic.id,
             postId: parentPost.id,
             postNumber: parentPost.post_number,
@@ -491,7 +481,7 @@ export default apiInitializer("1.14.0", (api) => {
 
           // Open the composer
           await composer.open({
-            action: Composer.REPLY,
+            action: "reply",
             topic: topic,
             post: parentPost,
             draftKey: draftKey,
