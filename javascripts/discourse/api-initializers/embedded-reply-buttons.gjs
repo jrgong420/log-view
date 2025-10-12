@@ -1,11 +1,7 @@
 import { apiInitializer } from "discourse/lib/api";
 import { schedule } from "@ember/runloop";
 
-const LOG_PREFIX = "[Embedded Reply Buttons]";
-
 export default apiInitializer("1.14.0", (api) => {
-  console.log(`${LOG_PREFIX} Initializer starting...`);
-
   let globalClickHandlerBound = false;
   let showRepliesClickHandlerBound = false;
 
@@ -69,26 +65,18 @@ export default apiInitializer("1.14.0", (api) => {
 
   // Function to inject reply buttons into embedded posts
   function injectEmbeddedReplyButtons(container) {
-    console.log(`${LOG_PREFIX} Injecting buttons into container:`, container);
-
     const embeddedItemsNodeList = container.querySelectorAll(EMBEDDED_ITEM_SELECTOR);
-    console.log(`${LOG_PREFIX} Found ${embeddedItemsNodeList.length} embedded post items (selector: ${EMBEDDED_ITEM_SELECTOR})`);
 
     // Filter out our own buttons to avoid treating them as items
     const embeddedItems = Array.from(embeddedItemsNodeList).filter((el) => !el.matches(".embedded-reply-button, button.embedded-reply-button"));
 
     let injectedCount = 0;
-    let skippedCount = 0;
 
-    embeddedItems.forEach((item, index) => {
+    embeddedItems.forEach((item) => {
       // Skip if already has button flag or an existing reply button inside
       if (item.dataset.replyBtnBound || item.querySelector(".embedded-reply-button")) {
-        console.log(`${LOG_PREFIX} Item ${index + 1}: Already has a reply button, skipping`);
-        skippedCount++;
         return;
       }
-
-      console.log(`${LOG_PREFIX} Item ${index + 1}: Injecting reply button...`);
 
       // Create the reply button
       const btn = document.createElement("button");
@@ -114,43 +102,31 @@ export default apiInitializer("1.14.0", (api) => {
       }
 
       if (controls) {
-        console.log(`${LOG_PREFIX} Item ${index + 1}: Appending to controls container`);
         controls.appendChild(btn);
       } else {
-        console.log(`${LOG_PREFIX} Item ${index + 1}: Appending to item directly (no controls found)`);
         item.appendChild(btn);
       }
 
       // Mark as bound on the item (not the button)
       item.dataset.replyBtnBound = "1";
       injectedCount++;
-      console.log(`${LOG_PREFIX} Item ${index + 1}: Button injected successfully`);
     });
 
-    console.log(`${LOG_PREFIX} Injection complete: ${injectedCount} injected, ${skippedCount} skipped`);
     return { total: embeddedItems.length, injected: injectedCount };
   }
 
   // Function to setup MutationObserver for a specific post
   function setupPostObserver(postElement) {
-    const postId = postElement?.id || postElement?.dataset?.postId || postElement?.dataset?.postNumber || "unknown";
-
     if (!postElement) {
-      console.warn(`${LOG_PREFIX} setupPostObserver called without a valid postElement`);
       return;
     }
 
     // Don't create duplicate observers
     if (activeObservers.has(postElement)) {
-      console.log(`${LOG_PREFIX} Observer already exists for post ${postId}`);
       return;
     }
 
-    console.log(`${LOG_PREFIX} Setting up MutationObserver for post ${postId}`);
-
     const observer = new MutationObserver((mutations) => {
-      console.log(`${LOG_PREFIX} Mutations detected in post ${postId}: ${mutations.length} mutations`);
-
       // Check if embedded-posts section was added
       for (const mutation of mutations) {
         if (mutation.type === "childList") {
@@ -158,10 +134,8 @@ export default apiInitializer("1.14.0", (api) => {
             if (node.nodeType === Node.ELEMENT_NODE) {
               // Check if the added node is or contains section.embedded-posts
               if (node.matches && node.matches("section.embedded-posts")) {
-                console.log(`${LOG_PREFIX} Embedded posts section detected in post ${postId}`);
                 const res = injectEmbeddedReplyButtons(node);
                 if (!res || res.total === 0) {
-                  console.log(`${LOG_PREFIX} No embedded items yet in section; observing section children...`);
                   setupSectionChildObserver(node);
                 }
                 observer.disconnect();
@@ -169,11 +143,9 @@ export default apiInitializer("1.14.0", (api) => {
               } else if (node.querySelector) {
                 const embeddedSections = node.querySelectorAll("section.embedded-posts");
                 if (embeddedSections.length > 0) {
-                  console.log(`${LOG_PREFIX} Found ${embeddedSections.length} embedded sections in added node`);
                   embeddedSections.forEach(section => {
                     const res = injectEmbeddedReplyButtons(section);
                     if (!res || res.total === 0) {
-                      console.log(`${LOG_PREFIX} No embedded items yet in section; observing section children...`);
                       setupSectionChildObserver(section);
                     }
                   });
@@ -194,39 +166,32 @@ export default apiInitializer("1.14.0", (api) => {
     });
 
     activeObservers.set(postElement, observer);
-    console.log(`${LOG_PREFIX} Observer started for post ${postId}`);
   }
 
   // Function to observe stream for a specific embedded section id (fallback)
   function setupSectionObserverById(sectionId) {
     if (!sectionId) {
-      console.warn(`${LOG_PREFIX} setupSectionObserverById called without sectionId`);
       return;
     }
     const targetSelector = `#${CSS.escape(sectionId)}`;
     const stream = document.querySelector("#topic .post-stream, .post-stream");
     if (!stream) {
-      console.warn(`${LOG_PREFIX} Could not find .post-stream container to observe for id`, sectionId);
       return;
     }
 
     // Avoid duplicate observers on the same stream+id by keying the map with the selector
     if (activeObservers.has(targetSelector)) {
-      console.log(`${LOG_PREFIX} Observer already exists for section id ${sectionId}`);
       return;
     }
 
-    console.log(`${LOG_PREFIX} Setting up stream observer for section id ${sectionId}`);
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         if (mutation.type === "childList") {
           // Check if our target section now exists
           const section = stream.querySelector(targetSelector);
           if (section) {
-            console.log(`${LOG_PREFIX} Detected target section #${sectionId} in stream; injecting`);
             const res = injectEmbeddedReplyButtons(section);
             if (!res || res.total === 0) {
-              console.log(`${LOG_PREFIX} No embedded items yet in section; observing section children...`);
               setupSectionChildObserver(section);
             }
             observer.disconnect();
@@ -237,65 +202,40 @@ export default apiInitializer("1.14.0", (api) => {
       }
     });
 
-
     observer.observe(stream, { childList: true, subtree: true });
     activeObservers.set(targetSelector, observer);
-    console.log(`${LOG_PREFIX} Stream observer started for section id ${sectionId}`);
   }
 
   // Observe a specific embedded section until items appear, then inject and stop
   function setupSectionChildObserver(section) {
     if (!section) {
-      console.warn(`${LOG_PREFIX} setupSectionChildObserver called without section`);
       return;
     }
     if (activeObservers.has(section)) {
-      console.log(`${LOG_PREFIX} Section observer already exists for`, section.id || section);
       return;
     }
 
-    console.log(`${LOG_PREFIX} Setting up child observer for section`, section.id || section);
-    const observer = new MutationObserver((mutationsList) => {
+    const observer = new MutationObserver(() => {
       const items = section.querySelectorAll(EMBEDDED_ITEM_SELECTOR);
       if (items.length > 0) {
-        console.log(`${LOG_PREFIX} Section child observer detected ${items.length} items; injecting now`);
         injectEmbeddedReplyButtons(section);
         observer.disconnect();
         activeObservers.delete(section);
-      } else {
-        // Debug: log newly added nodes to refine selectors if needed
-        let logged = 0;
-        for (const m of mutationsList) {
-          if (m.type === "childList" && m.addedNodes && m.addedNodes.length) {
-            for (const n of Array.from(m.addedNodes)) {
-              if (logged >= 3) break;
-              const nodeName = (n.nodeName || "").toLowerCase();
-              const cls = n.className || "";
-              console.log(`${LOG_PREFIX} Section child added: <${nodeName}> ${cls}`);
-              logged++;
-            }
-          }
-          if (logged >= 3) break;
-        }
       }
     });
 
     observer.observe(section, { childList: true, subtree: true });
     activeObservers.set(section, observer);
-    console.log(`${LOG_PREFIX} Section child observer started for`, section.id || section);
   }
 
   // Global delegated click handler for embedded reply buttons
   if (!globalClickHandlerBound) {
-    console.log(`${LOG_PREFIX} Binding global click handler for reply buttons...`);
-
     document.addEventListener(
       "click",
       async (e) => {
         const btn = e.target?.closest?.(".embedded-reply-button");
         if (!btn) return;
 
-        console.log(`${LOG_PREFIX} Reply button clicked:`, btn);
         e.preventDefault();
         e.stopPropagation();
 
@@ -304,16 +244,7 @@ export default apiInitializer("1.14.0", (api) => {
           const topic = api.container.lookup("controller:topic")?.model;
           const composer = api.container.lookup("service:composer");
 
-          console.log(`${LOG_PREFIX} Topic model:`, topic);
-          console.log(`${LOG_PREFIX} Composer service:`, composer);
-
-          if (!topic) {
-            console.error(`${LOG_PREFIX} No topic model found`);
-            return;
-          }
-
-          if (!composer) {
-            console.error(`${LOG_PREFIX} No composer service found`);
+          if (!topic || !composer) {
             return;
           }
 
@@ -327,7 +258,6 @@ export default apiInitializer("1.14.0", (api) => {
             rowContainer = btn.closest("article.topic-post, [data-post-number], [id^='post_']");
           }
           if (!rowContainer) {
-            console.error(`${LOG_PREFIX} No embedded row container found`);
             return;
           }
 
@@ -340,27 +270,15 @@ export default apiInitializer("1.14.0", (api) => {
 
           if (!postNumber) {
             // Fallback: resolve via post id if only data-post-id is present
-            console.log(`${LOG_PREFIX} Fallback post id from DOM/button:`, postId);
             if (postId && topic?.postStream?.posts) {
               const byId = topic.postStream.posts.find((p) => p.id === Number(postId));
               if (byId) {
                 postNumber = byId.post_number;
-                console.log(`${LOG_PREFIX} Resolved post number via post id mapping:`, postNumber);
-              } else {
-                console.log(`${LOG_PREFIX} Post id not found in stream:`, postId);
-                console.log(`${LOG_PREFIX} Stream post IDs:`, topic.postStream.posts.map((p) => p.id));
               }
             }
           }
-          console.log(`${LOG_PREFIX} Target embedded post number:`, postNumber);
-          console.log(`${LOG_PREFIX} Target embedded post id:`, postId);
 
           if (!postNumber) {
-            // Extra diagnostics
-            if (topic?.postStream?.posts) {
-              console.log(`${LOG_PREFIX} Available post IDs in stream:`, topic.postStream.posts.map((p) => p.id));
-              console.log(`${LOG_PREFIX} Available post numbers in stream:`, topic.postStream.posts.map((p) => p.post_number));
-            }
             // Final fallback: parse from hrefs inside the row
             const hrefCandidates = Array.from(rowContainer.querySelectorAll("a[href]"))
               .map((a) => a.getAttribute("href"))
@@ -369,14 +287,12 @@ export default apiInitializer("1.14.0", (api) => {
               const parsed = parsePostNumberFromHref(href);
               if (parsed) {
                 postNumber = parsed;
-                console.log(`${LOG_PREFIX} Resolved post number via href parsing:`, postNumber, href);
                 break;
               }
             }
           }
 
           if (!postNumber) {
-            console.error(`${LOG_PREFIX} No post number found for embedded row`);
             return;
           }
 
@@ -385,68 +301,25 @@ export default apiInitializer("1.14.0", (api) => {
             (p) => p.post_number === Number(postNumber)
           );
 
-          console.log(`${LOG_PREFIX} Target embedded post model:`, embeddedPost);
-
           // If post is not in the stream, try fetching it
-          if (!embeddedPost) {
-            console.log(
-              `${LOG_PREFIX} Post ${postNumber} not in stream, trying to fetch...`
-            );
-            console.log(
-              `${LOG_PREFIX} Available posts in stream:`,
-              topic.postStream?.posts?.map((p) => p.post_number)
-            );
-
-            // Try fetching the embedded post from the server
-            if (postId) {
-              console.log(
-                `${LOG_PREFIX} Attempting to fetch embedded post ${postId} from server...`
-              );
-              try {
-                const store = api.container.lookup("service:store");
-                const fetchedPost = await store.find("post", postId);
-
-                if (fetchedPost) {
-                  console.log(`${LOG_PREFIX} Successfully fetched embedded post:`, fetchedPost);
-                  embeddedPost = fetchedPost;
-                } else {
-                  console.error(`${LOG_PREFIX} Fetched post is null/undefined`);
-                }
-              } catch (fetchError) {
-                console.error(
-                  `${LOG_PREFIX} Failed to fetch embedded post from server:`,
-                  fetchError
-                );
+          if (!embeddedPost && postId) {
+            try {
+              const store = api.container.lookup("service:store");
+              const fetchedPost = await store.find("post", postId);
+              if (fetchedPost) {
+                embeddedPost = fetchedPost;
               }
-            }
-
-            // If still no post, give up
-            if (!embeddedPost) {
-              console.error(
-                `${LOG_PREFIX} Cannot find embedded post ${postNumber} - cannot determine reply target`
-              );
-              return;
+            } catch (fetchError) {
+              // Failed to fetch
             }
           }
 
-          // Now we have the embedded post - find the parent post it was replying to
-          console.log(`${LOG_PREFIX} Embedded post:`, embeddedPost);
-          console.log(`${LOG_PREFIX} Embedded post number:`, embeddedPost.post_number);
-          console.log(`${LOG_PREFIX} Embedded post id:`, embeddedPost.id);
-          console.log(`${LOG_PREFIX} Embedded post reply_to_post_number:`, embeddedPost.reply_to_post_number);
+          if (!embeddedPost) {
+            return;
+          }
 
           // The parent post is the one that the embedded post was replying to
-          let parentPostNumber = embeddedPost.reply_to_post_number;
-
-          if (!parentPostNumber) {
-            console.warn(
-              `${LOG_PREFIX} Embedded post ${embeddedPost.post_number} has no reply_to_post_number - it may be a top-level post. Replying to topic instead.`
-            );
-            // If the embedded post isn't replying to anything, just reply to the topic
-            parentPostNumber = null;
-          } else {
-            console.log(`${LOG_PREFIX} Parent post number (reply target):`, parentPostNumber);
-          }
+          let parentPostNumber = embeddedPost.reply_to_post_number || null;
 
           // Find the parent post model
           let parentPost = null;
@@ -455,43 +328,24 @@ export default apiInitializer("1.14.0", (api) => {
               (p) => p.post_number === Number(parentPostNumber)
             );
 
-            console.log(`${LOG_PREFIX} Parent post model:`, parentPost);
-
             // If parent post is not in the stream, try fetching it
             if (!parentPost) {
-              console.log(
-                `${LOG_PREFIX} Parent post ${parentPostNumber} not in stream, trying to fetch...`
-              );
-
-              // We need the parent post ID to fetch it
-              // Try to find it in the embedded post's data or fetch by post number
               try {
                 const store = api.container.lookup("service:store");
-
-                // Try to find the parent post by querying the topic's posts
-                // This is a workaround since we only have the post number
                 const topicPosts = await store.query("post", {
                   topic_id: topic.id,
-                  post_ids: [parentPostNumber] // This might not work, but worth trying
+                  post_ids: [parentPostNumber]
                 });
 
                 if (topicPosts && topicPosts.length > 0) {
                   parentPost = topicPosts.find(p => p.post_number === parentPostNumber);
-                  console.log(`${LOG_PREFIX} Successfully fetched parent post:`, parentPost);
                 }
               } catch (fetchError) {
-                console.warn(
-                  `${LOG_PREFIX} Failed to fetch parent post from server:`,
-                  fetchError
-                );
+                // Failed to fetch
               }
 
               // If we still don't have the parent post, try opening composer with just the post number
               if (!parentPost) {
-                console.log(
-                  `${LOG_PREFIX} Attempting to open composer with parent post number ${parentPostNumber}...`
-                );
-
                 try {
                   await composer.open({
                     action: "reply",
@@ -501,89 +355,40 @@ export default apiInitializer("1.14.0", (api) => {
                     skipJumpOnSave: true,
                     replyToPostNumber: Number(parentPostNumber),
                   });
-
-                  console.log(
-                    `${LOG_PREFIX} Composer opened successfully with parent post number ${parentPostNumber}`
-                  );
-                  return; // Exit early if this works
+                  return;
                 } catch (composerError) {
-                  console.error(
-                    `${LOG_PREFIX} Failed to open composer with replyToPostNumber:`,
-                    composerError
-                  );
-                  console.error(
-                    `${LOG_PREFIX} Cannot open composer - parent post ${parentPostNumber} not available`
-                  );
                   return;
                 }
               }
             }
           }
 
-          // At this point we have a valid parentPost (or null for topic-level reply)
-          if (parentPost) {
-            console.log(`${LOG_PREFIX} Using parent post as reply target:`, parentPost);
-            console.log(`${LOG_PREFIX} Parent post number:`, parentPost.post_number);
-            console.log(`${LOG_PREFIX} Parent post id:`, parentPost.id);
-          } else {
-            console.log(`${LOG_PREFIX} No parent post - replying to topic`);
-          }
-
-          // Get draft key and sequence from topic
-          const draftKey = topic.draft_key;
-          const draftSequence = topic.draft_sequence;
-
-          console.log(`${LOG_PREFIX} Draft key:`, draftKey);
-          console.log(`${LOG_PREFIX} Draft sequence:`, draftSequence);
-
+          // Open the composer
           const composerOptions = {
             action: "reply",
             topic: topic,
-            draftKey: draftKey,
-            draftSequence: draftSequence,
+            draftKey: topic.draft_key,
+            draftSequence: topic.draft_sequence,
             skipJumpOnSave: true,
           };
 
           if (parentPost) {
             composerOptions.post = parentPost;
-            console.log(`${LOG_PREFIX} Opening composer with parent post:`, {
-              action: "reply",
-              topicId: topic.id,
-              postId: parentPost.id,
-              postNumber: parentPost.post_number,
-              draftKey,
-              draftSequence,
-              skipJumpOnSave: true,
-            });
-          } else {
-            console.log(`${LOG_PREFIX} Opening composer for topic-level reply:`, {
-              action: "reply",
-              topicId: topic.id,
-              draftKey,
-              draftSequence,
-              skipJumpOnSave: true,
-            });
           }
 
-          // Open the composer
           await composer.open(composerOptions);
-
-          console.log(`${LOG_PREFIX} Composer opened successfully`);
         } catch (error) {
-          console.error(`${LOG_PREFIX} Error opening composer:`, error);
+          // Error opening composer
         }
       },
       true // Use capture phase
     );
 
     globalClickHandlerBound = true;
-    console.log(`${LOG_PREFIX} Global click handler for reply buttons bound successfully`);
   }
 
   // Delegated click handler for "show replies" buttons
   if (!showRepliesClickHandlerBound) {
-    console.log(`${LOG_PREFIX} Binding delegated click handler for show-replies buttons...`);
-
     document.addEventListener("click", (e) => {
       // Check if click is on show-replies button or load-more-replies
       const showRepliesBtn = e.target?.closest?.(".post-controls .show-replies, .show-replies, .post-action-menu__show-replies");
@@ -592,12 +397,10 @@ export default apiInitializer("1.14.0", (api) => {
       if (!showRepliesBtn && !loadMoreBtn) return;
 
       const clickedBtn = showRepliesBtn || loadMoreBtn;
-      console.log(`${LOG_PREFIX} Show replies / Load more button clicked:`, clickedBtn);
 
       // Only process in owner comment mode
       const isOwnerCommentMode = document.body.dataset.ownerCommentMode === "true";
       if (!isOwnerCommentMode) {
-        console.log(`${LOG_PREFIX} Not in owner comment mode, ignoring click`);
         return;
       }
 
@@ -610,40 +413,31 @@ export default apiInitializer("1.14.0", (api) => {
 
       // Fallback 2: derive from aria-controls
       const controlsId = clickedBtn.getAttribute("aria-controls");
-      let derivedPostNumber = null;
       if (!postElement && controlsId) {
         const m = controlsId.match(/--(\d+)$/);
         if (m) {
-          derivedPostNumber = m[1];
-          console.log(`${LOG_PREFIX} Derived post number from aria-controls:`, derivedPostNumber);
+          const derivedPostNumber = m[1];
           postElement = document.querySelector(`article.topic-post[data-post-number="${derivedPostNumber}"]`) ||
                         document.querySelector(`[data-post-number="${derivedPostNumber}"]`);
         }
       }
 
       if (!postElement) {
-        console.warn(`${LOG_PREFIX} Could not find parent post element; will observe stream for section id`, controlsId);
         if (controlsId) {
           setupSectionObserverById(controlsId);
         }
         return;
       }
 
-      const postId = postElement.id || postElement.dataset.postId || postElement.dataset.postNumber || "unknown";
-      console.log(`${LOG_PREFIX} Processing click for post ${postId}`);
-
       // Check if embedded posts already exist (fast path)
       schedule("afterRender", () => {
         const existingSection = postElement.querySelector("section.embedded-posts");
         if (existingSection) {
-          console.log(`${LOG_PREFIX} Embedded section already present in post ${postId}, injecting immediately`);
           const res = injectEmbeddedReplyButtons(existingSection);
           if (!res || res.total === 0) {
-            console.log(`${LOG_PREFIX} No embedded items yet; observing section children...`);
             setupSectionChildObserver(existingSection);
           }
         } else {
-          console.log(`${LOG_PREFIX} Embedded section not yet present, setting up observer for post ${postId}`);
           setupPostObserver(postElement);
           // Also set up a fallback observer using aria-controls if available
           if (controlsId) {
@@ -655,33 +449,22 @@ export default apiInitializer("1.14.0", (api) => {
     }, true); // Use capture phase
 
     showRepliesClickHandlerBound = true;
-    console.log(`${LOG_PREFIX} Delegated click handler for show-replies bound successfully`);
   }
 
   // Inject reply buttons into embedded posts on page changes (for already-expanded sections)
-  api.onPageChange((url, title) => {
-    console.log(`${LOG_PREFIX} Page change detected:`, { url, title });
-
+  api.onPageChange(() => {
     // Clean up old observers
-    console.log(`${LOG_PREFIX} Cleaning up ${activeObservers.size} active observers`);
-    activeObservers.forEach((observer, element) => {
+    activeObservers.forEach((observer) => {
       observer.disconnect();
     });
     activeObservers.clear();
-    console.log(`${LOG_PREFIX} Observers cleaned up`);
 
     schedule("afterRender", () => {
-      console.log(`${LOG_PREFIX} afterRender: Checking for embedded posts...`);
-
       // Check if we're in owner comment mode (filtered view)
       const isOwnerCommentMode =
         document.body.dataset.ownerCommentMode === "true";
-      console.log(`${LOG_PREFIX} Owner comment mode:`, isOwnerCommentMode);
 
       if (!isOwnerCommentMode) {
-        console.log(
-          `${LOG_PREFIX} Not in owner comment mode, skipping button injection`
-        );
         return;
       }
 
@@ -689,31 +472,19 @@ export default apiInitializer("1.14.0", (api) => {
       const embeddedSections = document.querySelectorAll(
         "section.embedded-posts"
       );
-      console.log(
-        `${LOG_PREFIX} Found ${embeddedSections.length} already-expanded embedded post sections`
-      );
 
       if (embeddedSections.length === 0) {
-        console.log(`${LOG_PREFIX} No embedded sections found on initial load (will be detected on user click)`);
         return;
       }
 
       // Inject buttons into each section
-      embeddedSections.forEach((section, sectionIndex) => {
-        console.log(
-          `${LOG_PREFIX} Processing already-expanded section ${sectionIndex + 1}...`
-        );
+      embeddedSections.forEach((section) => {
         const res = injectEmbeddedReplyButtons(section);
         if (!res || res.total === 0) {
-          console.log(`${LOG_PREFIX} No embedded items yet; observing section children...`);
           setupSectionChildObserver(section);
         }
       });
-
-      console.log(`${LOG_PREFIX} Button injection complete`);
     });
   });
-
-  console.log(`${LOG_PREFIX} Initializer setup complete`);
 });
 
