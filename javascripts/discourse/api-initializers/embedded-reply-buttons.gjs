@@ -54,6 +54,12 @@ export default apiInitializer("1.14.0", (api) => {
     return null;
   }
 
+  // Get the owner post (the post that contains the embedded section)
+  function getOwnerPostFromSection(section) {
+    if (!section) return null;
+    return section.closest("article.topic-post");
+  }
+
   function parsePostNumberFromHref(href) {
     if (!href || typeof href !== "string") return null;
     // Pattern: /t/<slug>/<topicId>/<postNumber>
@@ -101,56 +107,54 @@ export default apiInitializer("1.14.0", (api) => {
 
 
 
-  // Function to inject reply buttons into embedded posts
-  function injectEmbeddedReplyButtons(container) {
-    const embeddedItemsNodeList = container.querySelectorAll(EMBEDDED_ITEM_SELECTOR);
+  // Function to inject a single reply button at the section level
+  function injectEmbeddedReplyButtons(section) {
+    // Skip if section already has a reply button
+    if (!section || section.dataset.replyBtnBound || section.querySelector(".embedded-reply-button")) {
+      console.log(`${LOG_PREFIX} Section already has reply button, skipping injection`);
+      return { injected: 0, reason: "already-bound" };
+    }
 
-    // Filter out our own buttons to avoid treating them as items
-    const embeddedItems = Array.from(embeddedItemsNodeList).filter((el) => !el.matches(".embedded-reply-button, button.embedded-reply-button"));
+    // Find the collapse button to position our button next to it
+    const collapseButton = section.querySelector(".widget-button.collapse-up, button.collapse-up, .collapse-embedded-posts");
 
-    let injectedCount = 0;
+    if (!collapseButton) {
+      console.log(`${LOG_PREFIX} Collapse button not found in section, will append to section`);
+    }
 
-    embeddedItems.forEach((item) => {
-      // Skip if already has button flag or an existing reply button inside
-      if (item.dataset.replyBtnBound || item.querySelector(".embedded-reply-button")) {
-        return;
+    // Create the reply button
+    const btn = document.createElement("button");
+    btn.className = "btn btn-small embedded-reply-button";
+    btn.type = "button";
+    btn.textContent = "Reply";
+    btn.title = "Reply to owner's post";
+    btn.setAttribute("aria-label", "Reply to owner's post");
+
+    // Store the owner post number on the button for easy retrieval
+    const ownerPost = getOwnerPostFromSection(section);
+    if (ownerPost) {
+      const ownerPostNumber = extractPostNumberFromElement(ownerPost);
+      if (ownerPostNumber) {
+        btn.dataset.ownerPostNumber = String(ownerPostNumber);
+        console.log(`${LOG_PREFIX} Storing owner post number ${ownerPostNumber} on button`);
       }
+    }
 
-      // Create the reply button
-      const btn = document.createElement("button");
-      btn.className = "btn btn-small embedded-reply-button";
-      btn.type = "button";
-      btn.textContent = "Reply";
-      btn.title = "Reply to this post";
+    // Position the button next to the collapse button
+    if (collapseButton) {
+      // Insert as a sibling right before the collapse button
+      collapseButton.parentElement.insertBefore(btn, collapseButton);
+      console.log(`${LOG_PREFIX} Injected reply button next to collapse button`);
+    } else {
+      // Fallback: append to the section
+      section.appendChild(btn);
+      console.log(`${LOG_PREFIX} Injected reply button at end of section (collapse button not found)`);
+    }
 
-      // Persist identifiers on the button for robust retrieval
-      const candidateNumber = extractPostNumberFromElement(item);
-      if (candidateNumber) {
-        btn.dataset.postNumber = String(candidateNumber);
-      }
-      const candidateId = extractPostIdFromElement(item);
-      if (candidateId) {
-        btn.dataset.postId = String(candidateId);
-      }
+    // Mark section as having a button
+    section.dataset.replyBtnBound = "1";
 
-      // Find a good place to insert the button (avoid anchors/buttons)
-      let controls = item.querySelector("footer, .embedded-posts__post-footer, .post-controls__inner, .post-controls, .post-actions, .post-menu, .actions, .post-info");
-      if (controls && (controls.tagName === "A" || controls.tagName === "BUTTON")) {
-        controls = controls.parentElement || item;
-      }
-
-      if (controls) {
-        controls.appendChild(btn);
-      } else {
-        item.appendChild(btn);
-      }
-
-      // Mark as bound on the item (not the button)
-      item.dataset.replyBtnBound = "1";
-      injectedCount++;
-    });
-
-    return { total: embeddedItems.length, injected: injectedCount };
+    return { injected: 1, reason: "success" };
   }
 
   // Function to setup MutationObserver for a specific post
@@ -172,18 +176,29 @@ export default apiInitializer("1.14.0", (api) => {
             if (node.nodeType === Node.ELEMENT_NODE) {
               // Check if the added node is or contains section.embedded-posts
               if (node.matches && node.matches("section.embedded-posts")) {
+                console.log(`${LOG_PREFIX} Embedded section detected, attempting injection`);
                 const res = injectEmbeddedReplyButtons(node);
-                if (!res || res.total === 0) {
+                if (res.reason === "success") {
+                  console.log(`${LOG_PREFIX} Button injected successfully`);
+                  observer.disconnect();
+                  activeObservers.delete(postElement);
+                } else if (res.reason === "already-bound") {
+                  console.log(`${LOG_PREFIX} Section already has button`);
+                  observer.disconnect();
+                  activeObservers.delete(postElement);
+                } else {
+                  // Wait for collapse button to appear
                   setupSectionChildObserver(node);
+                  observer.disconnect();
+                  activeObservers.delete(postElement);
                 }
-                observer.disconnect();
-                activeObservers.delete(postElement);
               } else if (node.querySelector) {
                 const embeddedSections = node.querySelectorAll("section.embedded-posts");
                 if (embeddedSections.length > 0) {
                   embeddedSections.forEach(section => {
+                    console.log(`${LOG_PREFIX} Embedded section detected (nested), attempting injection`);
                     const res = injectEmbeddedReplyButtons(section);
-                    if (!res || res.total === 0) {
+                    if (res.reason !== "success" && res.reason !== "already-bound") {
                       setupSectionChildObserver(section);
                     }
                   });
@@ -204,6 +219,7 @@ export default apiInitializer("1.14.0", (api) => {
     });
 
     activeObservers.set(postElement, observer);
+    console.log(`${LOG_PREFIX} Set up observer for post element`);
   }
 
   // Function to observe stream for a specific embedded section id (fallback)
@@ -228,8 +244,9 @@ export default apiInitializer("1.14.0", (api) => {
           // Check if our target section now exists
           const section = stream.querySelector(targetSelector);
           if (section) {
+            console.log(`${LOG_PREFIX} Section found by ID, attempting injection`);
             const res = injectEmbeddedReplyButtons(section);
-            if (!res || res.total === 0) {
+            if (res.reason !== "success" && res.reason !== "already-bound") {
               setupSectionChildObserver(section);
             }
             observer.disconnect();
@@ -244,7 +261,7 @@ export default apiInitializer("1.14.0", (api) => {
     activeObservers.set(targetSelector, observer);
   }
 
-  // Observe a specific embedded section until items appear, then inject and stop
+  // Observe a specific embedded section until collapse button appears, then inject and stop
   function setupSectionChildObserver(section) {
     if (!section) {
       return;
@@ -253,9 +270,13 @@ export default apiInitializer("1.14.0", (api) => {
       return;
     }
 
+    console.log(`${LOG_PREFIX} Waiting for collapse button to appear in section`);
+
     const observer = new MutationObserver(() => {
-      const items = section.querySelectorAll(EMBEDDED_ITEM_SELECTOR);
-      if (items.length > 0) {
+      // Check if collapse button is now present
+      const collapseButton = section.querySelector(".widget-button.collapse-up, button.collapse-up, .collapse-embedded-posts");
+      if (collapseButton) {
+        console.log(`${LOG_PREFIX} Collapse button detected, injecting reply button`);
         injectEmbeddedReplyButtons(section);
         observer.disconnect();
         activeObservers.delete(section);
@@ -277,132 +298,68 @@ export default apiInitializer("1.14.0", (api) => {
         e.preventDefault();
         e.stopPropagation();
 
+        console.log(`${LOG_PREFIX} Section-level reply button clicked`);
+
         try {
           // Get required services and models
           const topic = api.container.lookup("controller:topic")?.model;
           const composer = api.container.lookup("service:composer");
 
           if (!topic || !composer) {
+            console.log(`${LOG_PREFIX} Topic or composer not available`);
             return;
           }
 
-          // Find the embedded row container (closest matching our injection targets)
-          let rowContainer = btn.closest(EMBEDDED_ITEM_SELECTOR);
-          // If the closest match is the button itself (because it carries data-post-id), climb to the parent
-          if (rowContainer === btn) {
-            rowContainer = btn.parentElement?.closest(EMBEDDED_ITEM_SELECTOR) || null;
-          }
-          if (!rowContainer) {
-            rowContainer = btn.closest("article.topic-post, [data-post-number], [id^='post_']");
-          }
-          if (!rowContainer) {
+          // Get the owner post number from the button's data attribute
+          const ownerPostNumber = btn.dataset.ownerPostNumber ? Number(btn.dataset.ownerPostNumber) : null;
+
+          if (!ownerPostNumber) {
+            console.log(`${LOG_PREFIX} Owner post number not found on button`);
             return;
           }
 
-          // Determine the post_number and post_id for this embedded row
-          let postNumber = extractPostNumberFromElement(rowContainer) || btn.dataset.postNumber;
-          let postId =
-            extractPostIdFromElement(rowContainer) ||
-            btn.dataset.postId ||
-            rowContainer.getAttribute?.("data-post-id");
+          console.log(`${LOG_PREFIX} Replying to owner post #${ownerPostNumber}`);
 
-          if (!postNumber) {
-            // Fallback: resolve via post id if only data-post-id is present
-            if (postId && topic?.postStream?.posts) {
-              const byId = topic.postStream.posts.find((p) => p.id === Number(postId));
-              if (byId) {
-                postNumber = byId.post_number;
-              }
-            }
-          }
-
-          if (!postNumber) {
-            // Final fallback: parse from hrefs inside the row
-            const hrefCandidates = Array.from(rowContainer.querySelectorAll("a[href]"))
-              .map((a) => a.getAttribute("href"))
-              .filter(Boolean);
-            for (const href of hrefCandidates) {
-              const parsed = parsePostNumberFromHref(href);
-              if (parsed) {
-                postNumber = parsed;
-                break;
-              }
-            }
-          }
-
-          if (!postNumber) {
-            return;
-          }
-
-          // Find the embedded post model from the topic's post stream
-          let embeddedPost = topic.postStream?.posts?.find(
-            (p) => p.post_number === Number(postNumber)
+          // Find the owner post model
+          let ownerPost = topic.postStream?.posts?.find(
+            (p) => p.post_number === ownerPostNumber
           );
 
-          // If post is not in the stream, try fetching it
-          if (!embeddedPost && postId) {
+          // If owner post is not in the stream, try fetching it
+          if (!ownerPost) {
             try {
               const store = api.container.lookup("service:store");
-              const fetchedPost = await store.find("post", postId);
-              if (fetchedPost) {
-                embeddedPost = fetchedPost;
+              const topicPosts = await store.query("post", {
+                topic_id: topic.id,
+                post_ids: [ownerPostNumber]
+              });
+
+              if (topicPosts && topicPosts.length > 0) {
+                ownerPost = topicPosts.find(p => p.post_number === ownerPostNumber);
               }
             } catch (fetchError) {
-              // Failed to fetch
+              console.log(`${LOG_PREFIX} Failed to fetch owner post:`, fetchError);
             }
-          }
 
-          if (!embeddedPost) {
-            return;
-          }
-
-          // The parent post is the one that the embedded post was replying to
-          let parentPostNumber = embeddedPost.reply_to_post_number || null;
-
-          // Find the parent post model
-          let parentPost = null;
-          if (parentPostNumber) {
-            parentPost = topic.postStream?.posts?.find(
-              (p) => p.post_number === Number(parentPostNumber)
-            );
-
-            // If parent post is not in the stream, try fetching it
-            if (!parentPost) {
+            // If we still don't have the owner post, try opening composer with just the post number
+            if (!ownerPost) {
               try {
-                const store = api.container.lookup("service:store");
-                const topicPosts = await store.query("post", {
-                  topic_id: topic.id,
-                  post_ids: [parentPostNumber]
+                // Store context for auto-refresh fallback before opening composer
+                lastReplyContext = { topicId: topic.id, parentPostNumber: ownerPostNumber, ownerPostNumber };
+                console.log(`${LOG_PREFIX} AutoRefresh: stored lastReplyContext (early path)`, lastReplyContext);
+
+                await composer.open({
+                  action: "reply",
+                  topic: topic,
+                  draftKey: topic.draft_key,
+                  draftSequence: topic.draft_sequence,
+                  skipJumpOnSave: true,
+                  replyToPostNumber: ownerPostNumber,
                 });
-
-                if (topicPosts && topicPosts.length > 0) {
-                  parentPost = topicPosts.find(p => p.post_number === parentPostNumber);
-                }
-              } catch (fetchError) {
-                // Failed to fetch
-              }
-
-              // If we still don't have the parent post, try opening composer with just the post number
-              if (!parentPost) {
-                try {
-                  // Store context for auto-refresh fallback before opening composer
-                  const ownerElEarly = btn.closest("article.topic-post");
-                  const ownerPostNumberEarly = ownerElEarly?.dataset?.postNumber ? Number(ownerElEarly.dataset.postNumber) : null;
-                  lastReplyContext = { topicId: topic.id, parentPostNumber: Number(parentPostNumber), ownerPostNumber: ownerPostNumberEarly };
-                  console.log(`${LOG_PREFIX} AutoRefresh: stored lastReplyContext (early path)`, lastReplyContext);
-
-                  await composer.open({
-                    action: "reply",
-                    topic: topic,
-                    draftKey: topic.draft_key,
-                    draftSequence: topic.draft_sequence,
-                    skipJumpOnSave: true,
-                    replyToPostNumber: Number(parentPostNumber),
-                  });
-                  return;
-                } catch (composerError) {
-                  return;
-                }
+                return;
+              } catch (composerError) {
+                console.log(`${LOG_PREFIX} Failed to open composer:`, composerError);
+                return;
               }
             }
           }
@@ -417,19 +374,17 @@ export default apiInitializer("1.14.0", (api) => {
           };
 
           // Remember context for auto-refresh fallback
-          const ownerEl = btn.closest("article.topic-post");
-          const ownerPostNumber = ownerEl?.dataset?.postNumber ? Number(ownerEl.dataset.postNumber) : null;
-          lastReplyContext = { topicId: topic.id, parentPostNumber: Number(parentPostNumber), ownerPostNumber };
+          lastReplyContext = { topicId: topic.id, parentPostNumber: ownerPostNumber, ownerPostNumber };
           console.log(`${LOG_PREFIX} AutoRefresh: stored lastReplyContext`, lastReplyContext);
 
-
-          if (parentPost) {
-            composerOptions.post = parentPost;
+          if (ownerPost) {
+            composerOptions.post = ownerPost;
           }
 
           await composer.open(composerOptions);
+          console.log(`${LOG_PREFIX} Composer opened successfully`);
         } catch (error) {
-          // Error opening composer
+          console.log(`${LOG_PREFIX} Error opening composer:`, error);
         }
       },
       true // Use capture phase
@@ -480,15 +435,19 @@ export default apiInitializer("1.14.0", (api) => {
         return;
       }
 
+      console.log(`${LOG_PREFIX} Show replies button clicked for post #${postElement?.dataset?.postNumber}`);
+
       // Check if embedded posts already exist (fast path)
       schedule("afterRender", () => {
         const existingSection = postElement.querySelector("section.embedded-posts");
         if (existingSection) {
+          console.log(`${LOG_PREFIX} Embedded section already exists, attempting injection`);
           const res = injectEmbeddedReplyButtons(existingSection);
-          if (!res || res.total === 0) {
+          if (res.reason !== "success" && res.reason !== "already-bound") {
             setupSectionChildObserver(existingSection);
           }
         } else {
+          console.log(`${LOG_PREFIX} Embedded section not yet rendered, setting up observer`);
           setupPostObserver(postElement);
           // Also set up a fallback observer using aria-controls if available
           if (controlsId) {
@@ -516,6 +475,7 @@ export default apiInitializer("1.14.0", (api) => {
         document.body.dataset.ownerCommentMode === "true";
 
       if (!isOwnerCommentMode) {
+        console.log(`${LOG_PREFIX} Not in owner comment mode, skipping injection`);
         return;
       }
 
@@ -525,16 +485,24 @@ export default apiInitializer("1.14.0", (api) => {
       );
 
       if (embeddedSections.length === 0) {
+        console.log(`${LOG_PREFIX} No embedded sections found on page`);
         return;
       }
 
+      console.log(`${LOG_PREFIX} Found ${embeddedSections.length} embedded section(s), injecting buttons`);
+
       // Inject buttons into each section
+      let successCount = 0;
       embeddedSections.forEach((section) => {
         const res = injectEmbeddedReplyButtons(section);
-        if (!res || res.total === 0) {
+        if (res.reason === "success") {
+          successCount++;
+        } else if (res.reason !== "already-bound") {
           setupSectionChildObserver(section);
         }
       });
+
+      console.log(`${LOG_PREFIX} Injected ${successCount} button(s) on page load`);
     });
   });
 

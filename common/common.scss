@@ -128,12 +128,12 @@ body.hide-reply-buttons-non-owners {
 /* ===== Embedded Reply Buttons ===== */
 
 /*
- * Styling for reply buttons injected into embedded posts
- * These appear in section.embedded-posts when in filtered view
+ * Styling for section-level reply button in embedded posts
+ * This button appears once per section.embedded-posts, positioned next to the collapse button
  */
 
 .embedded-reply-button {
-  margin-left: 0.5rem;
+  margin-right: 0.5rem;
   padding: 0.25rem 0.75rem;
   font-size: var(--font-down-1);
   background-color: var(--tertiary);
@@ -142,6 +142,9 @@ body.hide-reply-buttons-non-owners {
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
 
   &:hover {
     background-color: var(--tertiary-hover, var(--tertiary));
@@ -162,16 +165,14 @@ body.hide-reply-buttons-non-owners {
   }
 }
 
-/* Position the button nicely within embedded posts */
+/* Ensure the section footer has proper layout for button positioning */
 section.embedded-posts {
-  .embedded-post {
-    position: relative;
-
-    .post-info,
-    .post-actions {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
+  /* If the section has a footer or controls area, ensure buttons are inline */
+  > footer,
+  > .embedded-posts-footer,
+  > .embedded-posts__footer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 }
