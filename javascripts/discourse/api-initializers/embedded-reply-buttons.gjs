@@ -772,13 +772,34 @@ export default apiInitializer("1.14.0", (api) => {
           }
         }
 
-        // Strategy 2: If not found in embedded sections, try direct lookup (fallback for non-filtered view)
+        // Strategy 1b: Match section.id pattern (e.g., "embedded-posts--<ownerPostNumber>")
         if (!ownerPostElement) {
-          ownerPostElement = document.querySelector(
-            `article.topic-post[data-post-number="${parentPostNumber}"]`
-          );
+          for (const section of allEmbeddedSections) {
+            if (section.id && /--(\d+)$/.test(section.id)) {
+              const m = section.id.match(/--(\d+)$/);
+              if (m && Number(m[1]) === Number(parentPostNumber)) {
+                ownerPostElement = section.closest("article.topic-post") || section.closest("article") || section.parentElement;
+                console.log(`${LOG_PREFIX} AutoRefresh: matched owner post by section.id -> #${parentPostNumber}`);
+                break;
+              }
+            }
+          }
+        }
+
+        // Strategy 1c: Single section fallback
+        if (!ownerPostElement && allEmbeddedSections.length === 1) {
+          ownerPostElement = allEmbeddedSections[0].closest("article.topic-post") || allEmbeddedSections[0].closest("article") || allEmbeddedSections[0].parentElement;
+          console.log(`${LOG_PREFIX} AutoRefresh: single embedded section fallback -> using its closest article`);
+        }
+
+        // Strategy 2: Direct lookups for the owner post element
+        if (!ownerPostElement) {
+          ownerPostElement = document.querySelector(`article.topic-post[data-post-number="${parentPostNumber}"]`)
+            || document.querySelector(`#post_${parentPostNumber}`)?.closest?.("article.topic-post, article")
+            || document.querySelector(`#post-${parentPostNumber}`)?.closest?.("article.topic-post, article")
+            || document.querySelector(`[data-post-number="${parentPostNumber}"]`)?.closest?.("article.topic-post, article");
           if (ownerPostElement) {
-            console.log(`${LOG_PREFIX} AutoRefresh: found parent post #${parentPostNumber} as standalone article`);
+            console.log(`${LOG_PREFIX} AutoRefresh: found owner post via direct lookup variants for #${parentPostNumber}`);
           }
         }
 
@@ -786,7 +807,7 @@ export default apiInitializer("1.14.0", (api) => {
           console.log(`${LOG_PREFIX} AutoRefresh: could not find owner post containing embedded post #${parentPostNumber}`);
           return;
         }
-        console.log(`${LOG_PREFIX} AutoRefresh: targeting owner post #${ownerPostElement.dataset.postNumber} for refresh`);
+        console.log(`${LOG_PREFIX} AutoRefresh: targeting owner post #${ownerPostElement.dataset?.postNumber || ownerPostElement.id || "(unknown)"} for refresh`);
 
         // Wait for DOM to update, then trigger "load more replies"
         schedule("afterRender", () => {
