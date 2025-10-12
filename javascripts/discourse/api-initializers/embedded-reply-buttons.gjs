@@ -57,7 +57,35 @@ export default apiInitializer("1.14.0", (api) => {
   // Get the owner post (the post that contains the embedded section)
   function getOwnerPostFromSection(section) {
     if (!section) return null;
-    return section.closest("article.topic-post");
+
+    // Try closest first (most reliable)
+    let ownerPost = section.closest("article.topic-post");
+
+    if (!ownerPost) {
+      // Fallback 1: Try parent traversal
+      let current = section.parentElement;
+      while (current && current !== document.body) {
+        if (current.matches && current.matches("article.topic-post")) {
+          ownerPost = current;
+          break;
+        }
+        current = current.parentElement;
+      }
+    }
+
+    if (!ownerPost) {
+      // Fallback 2: Try finding by data-post-number in parent chain
+      let current = section.parentElement;
+      while (current && current !== document.body) {
+        if (current.dataset && current.dataset.postNumber) {
+          ownerPost = current;
+          break;
+        }
+        current = current.parentElement;
+      }
+    }
+
+    return ownerPost;
   }
 
   function parsePostNumberFromHref(href) {
@@ -131,13 +159,48 @@ export default apiInitializer("1.14.0", (api) => {
     btn.setAttribute("aria-label", "Reply to owner's post");
 
     // Store the owner post number on the button for easy retrieval
+    console.log(`${LOG_PREFIX} Attempting to find owner post for section:`, section);
+    console.log(`${LOG_PREFIX} Section ID:`, section.id);
+    console.log(`${LOG_PREFIX} Section classes:`, section.className);
+
     const ownerPost = getOwnerPostFromSection(section);
+    console.log(`${LOG_PREFIX} Owner post element:`, ownerPost);
+
+    let ownerPostNumber = null;
+
     if (ownerPost) {
-      const ownerPostNumber = extractPostNumberFromElement(ownerPost);
-      if (ownerPostNumber) {
-        btn.dataset.ownerPostNumber = String(ownerPostNumber);
-        console.log(`${LOG_PREFIX} Storing owner post number ${ownerPostNumber} on button`);
+      ownerPostNumber = extractPostNumberFromElement(ownerPost);
+      console.log(`${LOG_PREFIX} Extracted owner post number from element:`, ownerPostNumber);
+
+      if (!ownerPostNumber) {
+        console.warn(`${LOG_PREFIX} Could not extract post number from owner post element`);
+        console.warn(`${LOG_PREFIX} Owner post dataset:`, ownerPost.dataset);
+        console.warn(`${LOG_PREFIX} Owner post id:`, ownerPost.id);
+        console.warn(`${LOG_PREFIX} Owner post attributes:`, Array.from(ownerPost.attributes).map(a => `${a.name}="${a.value}"`));
       }
+    } else {
+      console.warn(`${LOG_PREFIX} Could not find owner post element (article.topic-post) for section`);
+      console.warn(`${LOG_PREFIX} Section parent elements:`, section.parentElement, section.parentElement?.parentElement);
+
+      // Fallback: Try to extract from section ID (e.g., "embedded-posts--123")
+      if (section.id) {
+        const match = section.id.match(/--(\d+)$/);
+        if (match) {
+          ownerPostNumber = Number(match[1]);
+          console.log(`${LOG_PREFIX} Extracted owner post number from section ID:`, ownerPostNumber);
+        }
+      }
+    }
+
+    if (ownerPostNumber) {
+      btn.dataset.ownerPostNumber = String(ownerPostNumber);
+      console.log(`${LOG_PREFIX} Successfully stored owner post number ${ownerPostNumber} on button`);
+      console.log(`${LOG_PREFIX} Button data-owner-post-number attribute:`, btn.dataset.ownerPostNumber);
+      console.log(`${LOG_PREFIX} Button element after setting attribute:`, btn);
+    } else {
+      console.error(`${LOG_PREFIX} CRITICAL: Could not determine owner post number - button will not work!`);
+      console.error(`${LOG_PREFIX} Section:`, section);
+      console.error(`${LOG_PREFIX} Owner post:`, ownerPost);
     }
 
     // Position the button next to the collapse button
@@ -331,6 +394,9 @@ export default apiInitializer("1.14.0", (api) => {
         e.stopPropagation();
 
         console.log(`${LOG_PREFIX} Section-level reply button clicked`);
+        console.log(`${LOG_PREFIX} Button element:`, btn);
+        console.log(`${LOG_PREFIX} Button dataset:`, btn.dataset);
+        console.log(`${LOG_PREFIX} Button data-owner-post-number:`, btn.dataset.ownerPostNumber);
 
         try {
           // Get required services and models
@@ -344,9 +410,12 @@ export default apiInitializer("1.14.0", (api) => {
 
           // Get the owner post number from the button's data attribute
           const ownerPostNumber = btn.dataset.ownerPostNumber ? Number(btn.dataset.ownerPostNumber) : null;
+          console.log(`${LOG_PREFIX} Parsed owner post number:`, ownerPostNumber);
 
           if (!ownerPostNumber) {
-            console.log(`${LOG_PREFIX} Owner post number not found on button`);
+            console.error(`${LOG_PREFIX} Owner post number not found on button`);
+            console.error(`${LOG_PREFIX} Button HTML:`, btn.outerHTML);
+            console.error(`${LOG_PREFIX} All button attributes:`, Array.from(btn.attributes).map(a => `${a.name}="${a.value}"`));
             return;
           }
 
