@@ -7,11 +7,113 @@ export default apiInitializer("1.14.0", (api) => {
   console.log(`${LOG_PREFIX} Initializer starting...`);
 
   let globalClickHandlerBound = false;
+  let showRepliesClickHandlerBound = false;
+
+  // Map to track active MutationObservers per post
+  const activeObservers = new Map();
+
+  // Function to inject reply buttons into embedded posts
+  function injectEmbeddedReplyButtons(container) {
+    console.log(`${LOG_PREFIX} Injecting buttons into container:`, container);
+
+    const embeddedItems = container.querySelectorAll(".embedded-post");
+    console.log(`${LOG_PREFIX} Found ${embeddedItems.length} embedded post items`);
+
+    let injectedCount = 0;
+    let skippedCount = 0;
+
+    embeddedItems.forEach((item, index) => {
+      // Skip if button already injected
+      if (item.dataset.replyBtnBound) {
+        console.log(`${LOG_PREFIX} Item ${index + 1}: Button already bound, skipping`);
+        skippedCount++;
+        return;
+      }
+
+      console.log(`${LOG_PREFIX} Item ${index + 1}: Injecting reply button...`);
+
+      // Create the reply button
+      const btn = document.createElement("button");
+      btn.className = "btn btn-small embedded-reply-button";
+      btn.type = "button";
+      btn.textContent = "Reply";
+      btn.title = "Reply to this post";
+
+      // Find a good place to insert the button
+      const postInfo = item.querySelector(".post-info");
+      const postActions = item.querySelector(".post-actions");
+
+      if (postActions) {
+        console.log(`${LOG_PREFIX} Item ${index + 1}: Appending to post-actions`);
+        postActions.appendChild(btn);
+      } else if (postInfo) {
+        console.log(`${LOG_PREFIX} Item ${index + 1}: Appending to post-info`);
+        postInfo.appendChild(btn);
+      } else {
+        console.log(`${LOG_PREFIX} Item ${index + 1}: Appending to item directly`);
+        item.appendChild(btn);
+      }
+
+      // Mark as bound
+      item.dataset.replyBtnBound = "1";
+      injectedCount++;
+      console.log(`${LOG_PREFIX} Item ${index + 1}: Button injected successfully`);
+    });
+
+    console.log(`${LOG_PREFIX} Injection complete: ${injectedCount} injected, ${skippedCount} skipped`);
+  }
+
+  // Function to setup MutationObserver for a specific post
+  function setupPostObserver(postElement) {
+    const postId = postElement.id || postElement.dataset.postId || postElement.dataset.postNumber || "unknown";
+
+    // Don't create duplicate observers
+    if (activeObservers.has(postElement)) {
+      console.log(`${LOG_PREFIX} Observer already exists for post ${postId}`);
+      return;
+    }
+
+    console.log(`${LOG_PREFIX} Setting up MutationObserver for post ${postId}`);
+
+    const observer = new MutationObserver((mutations) => {
+      console.log(`${LOG_PREFIX} Mutations detected in post ${postId}: ${mutations.length} mutations`);
+
+      // Check if embedded-posts section was added
+      for (const mutation of mutations) {
+        if (mutation.type === "childList") {
+          mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              // Check if the added node is or contains section.embedded-posts
+              if (node.matches && node.matches("section.embedded-posts")) {
+                console.log(`${LOG_PREFIX} Embedded posts section detected in post ${postId}`);
+                injectEmbeddedReplyButtons(node);
+              } else if (node.querySelector) {
+                const embeddedSections = node.querySelectorAll("section.embedded-posts");
+                if (embeddedSections.length > 0) {
+                  console.log(`${LOG_PREFIX} Found ${embeddedSections.length} embedded sections in added node`);
+                  embeddedSections.forEach(section => injectEmbeddedReplyButtons(section));
+                }
+              }
+            }
+          });
+        }
+      }
+    });
+
+    // Observe the post element for child additions
+    observer.observe(postElement, {
+      childList: true,
+      subtree: true
+    });
+
+    activeObservers.set(postElement, observer);
+    console.log(`${LOG_PREFIX} Observer started for post ${postId}`);
+  }
 
   // Global delegated click handler for embedded reply buttons
   if (!globalClickHandlerBound) {
-    console.log(`${LOG_PREFIX} Binding global click handler...`);
-    
+    console.log(`${LOG_PREFIX} Binding global click handler for reply buttons...`);
+
     document.addEventListener(
       "click",
       async (e) => {
@@ -114,12 +216,69 @@ export default apiInitializer("1.14.0", (api) => {
     );
 
     globalClickHandlerBound = true;
-    console.log(`${LOG_PREFIX} Global click handler bound successfully`);
+    console.log(`${LOG_PREFIX} Global click handler for reply buttons bound successfully`);
   }
 
-  // Inject reply buttons into embedded posts on page changes
+  // Delegated click handler for "show replies" buttons
+  if (!showRepliesClickHandlerBound) {
+    console.log(`${LOG_PREFIX} Binding delegated click handler for show-replies buttons...`);
+
+    document.addEventListener("click", (e) => {
+      // Check if click is on show-replies button or load-more-replies
+      const showRepliesBtn = e.target?.closest?.(".post-controls .show-replies");
+      const loadMoreBtn = e.target?.closest?.(".embedded-posts .load-more-replies, .embedded-posts button");
+
+      if (!showRepliesBtn && !loadMoreBtn) return;
+
+      const clickedBtn = showRepliesBtn || loadMoreBtn;
+      console.log(`${LOG_PREFIX} Show replies / Load more button clicked:`, clickedBtn);
+
+      // Only process in owner comment mode
+      const isOwnerCommentMode = document.body.dataset.ownerCommentMode === "true";
+      if (!isOwnerCommentMode) {
+        console.log(`${LOG_PREFIX} Not in owner comment mode, ignoring click`);
+        return;
+      }
+
+      // Find the parent post element
+      const postElement = clickedBtn.closest("article.topic-post");
+      if (!postElement) {
+        console.warn(`${LOG_PREFIX} Could not find parent post element`);
+        return;
+      }
+
+      const postId = postElement.id || postElement.dataset.postId || postElement.dataset.postNumber || "unknown";
+      console.log(`${LOG_PREFIX} Processing click for post ${postId}`);
+
+      // Check if embedded posts already exist (fast path)
+      schedule("afterRender", () => {
+        const existingSection = postElement.querySelector("section.embedded-posts");
+        if (existingSection) {
+          console.log(`${LOG_PREFIX} Embedded section already present in post ${postId}, injecting immediately`);
+          injectEmbeddedReplyButtons(existingSection);
+        } else {
+          console.log(`${LOG_PREFIX} Embedded section not yet present, setting up observer for post ${postId}`);
+          setupPostObserver(postElement);
+        }
+      });
+
+    }, true); // Use capture phase
+
+    showRepliesClickHandlerBound = true;
+    console.log(`${LOG_PREFIX} Delegated click handler for show-replies bound successfully`);
+  }
+
+  // Inject reply buttons into embedded posts on page changes (for already-expanded sections)
   api.onPageChange((url, title) => {
     console.log(`${LOG_PREFIX} Page change detected:`, { url, title });
+
+    // Clean up old observers
+    console.log(`${LOG_PREFIX} Cleaning up ${activeObservers.size} active observers`);
+    activeObservers.forEach((observer, element) => {
+      observer.disconnect();
+    });
+    activeObservers.clear();
+    console.log(`${LOG_PREFIX} Observers cleaned up`);
 
     schedule("afterRender", () => {
       console.log(`${LOG_PREFIX} afterRender: Checking for embedded posts...`);
@@ -136,73 +295,25 @@ export default apiInitializer("1.14.0", (api) => {
         return;
       }
 
-      // Find all embedded post sections
+      // Find all embedded post sections that are already expanded
       const embeddedSections = document.querySelectorAll(
         "section.embedded-posts"
       );
       console.log(
-        `${LOG_PREFIX} Found ${embeddedSections.length} embedded post sections`
+        `${LOG_PREFIX} Found ${embeddedSections.length} already-expanded embedded post sections`
       );
 
+      if (embeddedSections.length === 0) {
+        console.log(`${LOG_PREFIX} No embedded sections found on initial load (will be detected on user click)`);
+        return;
+      }
+
+      // Inject buttons into each section
       embeddedSections.forEach((section, sectionIndex) => {
         console.log(
-          `${LOG_PREFIX} Processing embedded section ${sectionIndex + 1}...`
+          `${LOG_PREFIX} Processing already-expanded section ${sectionIndex + 1}...`
         );
-
-        // Find all embedded post items within this section
-        const embeddedItems = section.querySelectorAll(".embedded-post");
-        console.log(
-          `${LOG_PREFIX} Found ${embeddedItems.length} embedded items in section ${sectionIndex + 1}`
-        );
-
-        embeddedItems.forEach((item, itemIndex) => {
-          // Skip if button already injected
-          if (item.dataset.replyBtnBound) {
-            console.log(
-              `${LOG_PREFIX} Section ${sectionIndex + 1}, Item ${itemIndex + 1}: Button already bound, skipping`
-            );
-            return;
-          }
-
-          console.log(
-            `${LOG_PREFIX} Section ${sectionIndex + 1}, Item ${itemIndex + 1}: Injecting reply button...`
-          );
-
-          // Create the reply button
-          const btn = document.createElement("button");
-          btn.className = "btn btn-small embedded-reply-button";
-          btn.type = "button";
-          btn.textContent = "Reply";
-          btn.title = "Reply to this post";
-
-          // Find a good place to insert the button
-          // Try to find the post-info or post-actions area
-          const postInfo = item.querySelector(".post-info");
-          const postActions = item.querySelector(".post-actions");
-
-          if (postActions) {
-            console.log(
-              `${LOG_PREFIX} Section ${sectionIndex + 1}, Item ${itemIndex + 1}: Appending to post-actions`
-            );
-            postActions.appendChild(btn);
-          } else if (postInfo) {
-            console.log(
-              `${LOG_PREFIX} Section ${sectionIndex + 1}, Item ${itemIndex + 1}: Appending to post-info`
-            );
-            postInfo.appendChild(btn);
-          } else {
-            console.log(
-              `${LOG_PREFIX} Section ${sectionIndex + 1}, Item ${itemIndex + 1}: Appending to item directly`
-            );
-            item.appendChild(btn);
-          }
-
-          // Mark as bound
-          item.dataset.replyBtnBound = "1";
-          console.log(
-            `${LOG_PREFIX} Section ${sectionIndex + 1}, Item ${itemIndex + 1}: Button injected successfully`
-          );
-        });
+        injectEmbeddedReplyButtons(section);
       });
 
       console.log(`${LOG_PREFIX} Button injection complete`);
