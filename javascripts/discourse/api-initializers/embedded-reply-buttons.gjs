@@ -4,6 +4,7 @@ import { schedule } from "@ember/runloop";
 export default apiInitializer("1.14.0", (api) => {
   let globalClickHandlerBound = false;
   let showRepliesClickHandlerBound = false;
+  let composerEventsBound = false;
 
   // Map to track active MutationObservers per post
   const activeObservers = new Map();
@@ -486,5 +487,69 @@ export default apiInitializer("1.14.0", (api) => {
       });
     });
   });
+
+  // Auto-refresh embedded posts after reply submission
+  if (!composerEventsBound) {
+    const appEvents = api.container.lookup("service:app-events");
+
+    if (appEvents) {
+      appEvents.on("composer:saved", (post) => {
+        // Only process in owner comment mode
+        const isOwnerCommentMode = document.body.dataset.ownerCommentMode === "true";
+        if (!isOwnerCommentMode) {
+          return;
+        }
+
+        // Only process if this is a reply (has reply_to_post_number)
+        const parentPostNumber = post.reply_to_post_number;
+        if (!parentPostNumber) {
+          return;
+        }
+
+        // Find the parent post element
+        const parentPostElement = document.querySelector(
+          `article.topic-post[data-post-number="${parentPostNumber}"]`
+        );
+
+        if (!parentPostElement) {
+          return;
+        }
+
+        // Wait for DOM to update, then trigger "load more replies"
+        schedule("afterRender", () => {
+          // Try to find the "load more replies" button
+          const embeddedSection = parentPostElement.querySelector("section.embedded-posts");
+          const loadMoreBtn = embeddedSection?.querySelector(".load-more-replies");
+
+          if (loadMoreBtn) {
+            // Click the button to refresh embedded posts
+            loadMoreBtn.click();
+          } else {
+            // If button doesn't exist yet, set up an observer to wait for it
+            const observer = new MutationObserver(() => {
+              const btn = parentPostElement.querySelector(
+                "section.embedded-posts .load-more-replies"
+              );
+
+              if (btn) {
+                btn.click();
+                observer.disconnect();
+              }
+            });
+
+            observer.observe(parentPostElement, {
+              childList: true,
+              subtree: true
+            });
+
+            // Timeout to prevent infinite observation (5 seconds)
+            setTimeout(() => observer.disconnect(), 5000);
+          }
+        });
+      });
+
+      composerEventsBound = true;
+    }
+  }
 });
 
