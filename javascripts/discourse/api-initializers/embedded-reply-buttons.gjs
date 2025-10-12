@@ -168,9 +168,14 @@ export default apiInitializer("1.14.0", (api) => {
             return;
           }
         }
-        }
       }
     });
+
+
+    observer.observe(stream, { childList: true, subtree: true });
+    activeObservers.set(targetSelector, observer);
+    console.log(`${LOG_PREFIX} Stream observer started for section id ${sectionId}`);
+  }
 
   // Observe a specific embedded section until items appear, then inject and stop
   function setupSectionChildObserver(section) {
@@ -197,14 +202,6 @@ export default apiInitializer("1.14.0", (api) => {
     observer.observe(section, { childList: true, subtree: true });
     activeObservers.set(section, observer);
     console.log(`${LOG_PREFIX} Section child observer started for`, section.id || section);
-  }
-
-      }
-    });
-
-    observer.observe(stream, { childList: true, subtree: true });
-    activeObservers.set(targetSelector, observer);
-    console.log(`${LOG_PREFIX} Stream observer started for section id ${sectionId}`);
   }
 
   // Global delegated click handler for embedded reply buttons
