@@ -53,22 +53,37 @@ export default apiInitializer("1.14.0", (api) => {
     return null;
   }
 
+  function parsePostNumberFromHref(href) {
+    if (!href || typeof href !== "string") return null;
+    // Pattern: /t/<slug>/<topicId>/<postNumber>
+    let m = href.match(/\/t\/[^/]+\/\d+\/(\d+)(?:$|[?#])/);
+    if (m) return Number(m[1]);
+    // Pattern: #post_82 or #post-82
+    m = href.match(/#post[_-](\d+)/i);
+    if (m) return Number(m[1]);
+    return null;
+  }
+
+
 
 
   // Function to inject reply buttons into embedded posts
   function injectEmbeddedReplyButtons(container) {
     console.log(`${LOG_PREFIX} Injecting buttons into container:`, container);
 
-    const embeddedItems = container.querySelectorAll(EMBEDDED_ITEM_SELECTOR);
-    console.log(`${LOG_PREFIX} Found ${embeddedItems.length} embedded post items (selector: ${EMBEDDED_ITEM_SELECTOR})`);
+    const embeddedItemsNodeList = container.querySelectorAll(EMBEDDED_ITEM_SELECTOR);
+    console.log(`${LOG_PREFIX} Found ${embeddedItemsNodeList.length} embedded post items (selector: ${EMBEDDED_ITEM_SELECTOR})`);
+
+    // Filter out our own buttons to avoid treating them as items
+    const embeddedItems = Array.from(embeddedItemsNodeList).filter((el) => !el.matches(".embedded-reply-button, button.embedded-reply-button"));
 
     let injectedCount = 0;
     let skippedCount = 0;
 
     embeddedItems.forEach((item, index) => {
-      // Skip if already has button
-      if (item.dataset.replyBtnBound) {
-        console.log(`${LOG_PREFIX} Item ${index + 1}: Button already bound, skipping`);
+      // Skip if already has button flag or an existing reply button inside
+      if (item.dataset.replyBtnBound || item.querySelector(".embedded-reply-button")) {
+        console.log(`${LOG_PREFIX} Item ${index + 1}: Already has a reply button, skipping`);
         skippedCount++;
         return;
       }
@@ -92,8 +107,11 @@ export default apiInitializer("1.14.0", (api) => {
         btn.dataset.postId = String(candidateId);
       }
 
-      // Find a good place to insert the button
-      const controls = item.querySelector(".post-controls, .post-actions, .post-info, .embedded-posts__post-footer, footer, .post-menu, .actions, .post-controls__inner");
+      // Find a good place to insert the button (avoid anchors/buttons)
+      let controls = item.querySelector("footer, .embedded-posts__post-footer, .post-controls__inner, .post-controls, .post-actions, .post-menu, .actions, .post-info");
+      if (controls && (controls.tagName === "A" || controls.tagName === "BUTTON")) {
+        controls = controls.parentElement || item;
+      }
 
       if (controls) {
         console.log(`${LOG_PREFIX} Item ${index + 1}: Appending to controls container`);
@@ -103,7 +121,7 @@ export default apiInitializer("1.14.0", (api) => {
         item.appendChild(btn);
       }
 
-      // Mark as bound
+      // Mark as bound on the item (not the button)
       item.dataset.replyBtnBound = "1";
       injectedCount++;
       console.log(`${LOG_PREFIX} Item ${index + 1}: Button injected successfully`);
@@ -300,8 +318,14 @@ export default apiInitializer("1.14.0", (api) => {
           }
 
           // Find the embedded row container (closest matching our injection targets)
-          const rowContainer = btn.closest(EMBEDDED_ITEM_SELECTOR) ||
-                               btn.closest("article.topic-post, [data-post-number], [id^='post_']");
+          let rowContainer = btn.closest(EMBEDDED_ITEM_SELECTOR);
+          // If the closest match is the button itself (because it carries data-post-id), climb to the parent
+          if (rowContainer === btn) {
+            rowContainer = btn.parentElement?.closest(EMBEDDED_ITEM_SELECTOR) || null;
+          }
+          if (!rowContainer) {
+            rowContainer = btn.closest("article.topic-post, [data-post-number], [id^='post_']");
+          }
           if (!rowContainer) {
             console.error(`${LOG_PREFIX} No embedded row container found`);
             return;
@@ -321,10 +345,33 @@ export default apiInitializer("1.14.0", (api) => {
               if (byId) {
                 postNumber = byId.post_number;
                 console.log(`${LOG_PREFIX} Resolved post number via post id mapping:`, postNumber);
+              } else {
+                console.log(`${LOG_PREFIX} Post id not found in stream:`, postId);
+                console.log(`${LOG_PREFIX} Stream post IDs:`, topic.postStream.posts.map((p) => p.id));
               }
             }
           }
           console.log(`${LOG_PREFIX} Target embedded post number:`, postNumber);
+
+          if (!postNumber) {
+            // Extra diagnostics
+            if (topic?.postStream?.posts) {
+              console.log(`${LOG_PREFIX} Available post IDs in stream:`, topic.postStream.posts.map((p) => p.id));
+              console.log(`${LOG_PREFIX} Available post numbers in stream:`, topic.postStream.posts.map((p) => p.post_number));
+            }
+            // Final fallback: parse from hrefs inside the row
+            const hrefCandidates = Array.from(rowContainer.querySelectorAll("a[href]"))
+              .map((a) => a.getAttribute("href"))
+              .filter(Boolean);
+            for (const href of hrefCandidates) {
+              const parsed = parsePostNumberFromHref(href);
+              if (parsed) {
+                postNumber = parsed;
+                console.log(`${LOG_PREFIX} Resolved post number via href parsing:`, postNumber, href);
+                break;
+              }
+            }
+          }
 
           if (!postNumber) {
             console.error(`${LOG_PREFIX} No post number found for embedded row`);
