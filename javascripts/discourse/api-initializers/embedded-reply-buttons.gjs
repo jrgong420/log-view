@@ -331,14 +331,15 @@ export default apiInitializer("1.14.0", (api) => {
             return;
           }
 
-          // Determine the post_number for this embedded row
+          // Determine the post_number and post_id for this embedded row
           let postNumber = extractPostNumberFromElement(rowContainer) || btn.dataset.postNumber;
+          let postId =
+            extractPostIdFromElement(rowContainer) ||
+            btn.dataset.postId ||
+            rowContainer.getAttribute?.("data-post-id");
+
           if (!postNumber) {
             // Fallback: resolve via post id if only data-post-id is present
-            const postId =
-              extractPostIdFromElement(rowContainer) ||
-              btn.dataset.postId ||
-              rowContainer.getAttribute?.("data-post-id");
             console.log(`${LOG_PREFIX} Fallback post id from DOM/button:`, postId);
             if (postId && topic?.postStream?.posts) {
               const byId = topic.postStream.posts.find((p) => p.id === Number(postId));
@@ -352,6 +353,7 @@ export default apiInitializer("1.14.0", (api) => {
             }
           }
           console.log(`${LOG_PREFIX} Target embedded post number:`, postNumber);
+          console.log(`${LOG_PREFIX} Target embedded post id:`, postId);
 
           if (!postNumber) {
             // Extra diagnostics
@@ -385,50 +387,85 @@ export default apiInitializer("1.14.0", (api) => {
 
           console.log(`${LOG_PREFIX} Target embedded post model:`, parentPost);
 
-          // If post is not in the stream, load it on-demand
-          if (!parentPost && topic.postStream) {
+          // If post is not in the stream, try alternative approaches
+          if (!parentPost) {
             console.log(
-              `${LOG_PREFIX} Post ${postNumber} not in stream, loading on-demand...`
+              `${LOG_PREFIX} Post ${postNumber} not in stream, trying alternative approaches...`
             );
             console.log(
-              `${LOG_PREFIX} Available posts before load:`,
-              topic.postStream.posts?.map((p) => p.post_number)
+              `${LOG_PREFIX} Available posts in stream:`,
+              topic.postStream?.posts?.map((p) => p.post_number)
+            );
+
+            // Import Composer model for action constants
+            const { default: Composer } = await import(
+              "discourse/models/composer"
+            );
+
+            // Approach 1: Try to open composer with just the post number
+            // The composer should be able to handle this and fetch the post data itself
+            console.log(
+              `${LOG_PREFIX} Attempting to open composer with post number ${postNumber}...`
             );
 
             try {
-              // Load the specific post into the stream
-              await topic.postStream.loadPostByPostNumber(Number(postNumber));
+              await composer.open({
+                action: Composer.REPLY,
+                topic: topic,
+                draftKey: topic.draft_key,
+                draftSequence: topic.draft_sequence,
+                skipJumpOnSave: true,
+                // Try using post number directly - composer may fetch the post itself
+                replyToPostNumber: Number(postNumber),
+              });
 
-              // Try to find it again after loading
-              parentPost = topic.postStream.posts?.find(
-                (p) => p.post_number === Number(postNumber)
+              console.log(
+                `${LOG_PREFIX} Composer opened successfully with post number ${postNumber}`
               );
+              return; // Exit early if this works
+            } catch (composerError) {
+              console.error(
+                `${LOG_PREFIX} Failed to open composer with replyToPostNumber:`,
+                composerError
+              );
+            }
 
-              if (parentPost) {
-                console.log(`${LOG_PREFIX} Successfully loaded post ${postNumber}`);
-              } else {
+            // Approach 2: Try fetching the post from the server and using it
+            if (postId) {
+              console.log(
+                `${LOG_PREFIX} Attempting to fetch post ${postId} from server...`
+              );
+              try {
+                const store = api.container.lookup("service:store");
+                const fetchedPost = await store.find("post", postId);
+
+                if (fetchedPost) {
+                  console.log(`${LOG_PREFIX} Successfully fetched post:`, fetchedPost);
+                  parentPost = fetchedPost;
+                } else {
+                  console.error(`${LOG_PREFIX} Fetched post is null/undefined`);
+                }
+              } catch (fetchError) {
                 console.error(
-                  `${LOG_PREFIX} Post ${postNumber} still not found after loading`
+                  `${LOG_PREFIX} Failed to fetch post from server:`,
+                  fetchError
                 );
               }
-            } catch (loadError) {
+            }
+
+            // If still no post, give up
+            if (!parentPost) {
               console.error(
-                `${LOG_PREFIX} Failed to load post ${postNumber}:`,
-                loadError
+                `${LOG_PREFIX} All approaches failed - cannot open composer for post ${postNumber}`
               );
+              return;
             }
           }
 
-          if (!parentPost) {
-            console.error(
-              `${LOG_PREFIX} Could not find or load post model for post number ${postNumber}`
-            );
-            console.log(
-              `${LOG_PREFIX} Available posts:`,
-              topic.postStream?.posts?.map((p) => p.post_number)
-            );
-            return;
-          }
+          // At this point we have a valid parentPost
+          console.log(`${LOG_PREFIX} Using post model:`, parentPost);
+          console.log(`${LOG_PREFIX} Post number:`, parentPost.post_number);
+          console.log(`${LOG_PREFIX} Post id:`, parentPost.id);
 
           // Get draft key and sequence from topic
           const draftKey = topic.draft_key;
@@ -437,7 +474,7 @@ export default apiInitializer("1.14.0", (api) => {
           console.log(`${LOG_PREFIX} Draft key:`, draftKey);
           console.log(`${LOG_PREFIX} Draft sequence:`, draftSequence);
 
-          // Import Composer model for action constants
+          // Import Composer model for action constants (if not already imported)
           const { default: Composer } = await import(
             "discourse/models/composer"
           );
