@@ -15,6 +15,28 @@ export default apiInitializer("1.14.0", (api) => {
   // Support multiple markup variants for embedded rows (broad but scoped to the section)
   const EMBEDDED_ITEM_SELECTOR = "[data-post-id], [data-post-number], li[id^=\"post_\"], article[id^=\"post_\"], article.topic-post, .embedded-posts__post, .embedded-post, li.embedded-post, .embedded-post-item";
 
+  function extractPostNumberFromElement(el) {
+    if (!el) return null;
+    const ds = el.dataset || {};
+    if (ds.postNumber) return Number(ds.postNumber);
+    const attrPN = el.getAttribute?.("data-post-number");
+    if (attrPN) return Number(attrPN);
+    const id = el.id || "";
+    let m = id.match(/^post[_-](\d+)$/i);
+    if (m) return Number(m[1]);
+    // Look for descendant hints (some rows wrap inner article/li)
+    const inner = el.querySelector?.("[data-post-number], [id^='post_']");
+    if (inner) {
+      const ds2 = inner.dataset || {};
+      if (ds2.postNumber) return Number(ds2.postNumber);
+      const id2 = inner.id || "";
+      m = id2.match(/^post[_-](\d+)$/i);
+      if (m) return Number(m[1]);
+    }
+    return null;
+  }
+
+
   // Function to inject reply buttons into embedded posts
   function injectEmbeddedReplyButtons(container) {
     console.log(`${LOG_PREFIX} Injecting buttons into container:`, container);
@@ -41,6 +63,12 @@ export default apiInitializer("1.14.0", (api) => {
       btn.type = "button";
       btn.textContent = "Reply";
       btn.title = "Reply to this post";
+
+      // Persist the post number on the button for robust retrieval
+      const candidateNumber = extractPostNumberFromElement(item);
+      if (candidateNumber) {
+        btn.dataset.postNumber = String(candidateNumber);
+      }
 
       // Find a good place to insert the button
       const controls = item.querySelector(".post-controls, .post-actions, .post-info, .embedded-posts__post-footer, footer, .post-menu, .actions, .post-controls__inner");
@@ -249,18 +277,20 @@ export default apiInitializer("1.14.0", (api) => {
             return;
           }
 
-          // Find the parent post container
-          const postContainer = btn.closest("article.topic-post");
-          if (!postContainer) {
-            console.error(`${LOG_PREFIX} No parent post container found`);
+          // Find the embedded row container (closest matching our injection targets)
+          const rowContainer = btn.closest(EMBEDDED_ITEM_SELECTOR) ||
+                               btn.closest("article.topic-post, [data-post-number], [id^='post_']");
+          if (!rowContainer) {
+            console.error(`${LOG_PREFIX} No embedded row container found`);
             return;
           }
 
-          const postNumber = postContainer.dataset.postNumber;
-          console.log(`${LOG_PREFIX} Parent post number:`, postNumber);
+          // Determine the post_number for this embedded row
+          let postNumber = extractPostNumberFromElement(rowContainer) || btn.dataset.postNumber;
+          console.log(`${LOG_PREFIX} Target embedded post number:`, postNumber);
 
           if (!postNumber) {
-            console.error(`${LOG_PREFIX} No post number found on container`);
+            console.error(`${LOG_PREFIX} No post number found for embedded row`);
             return;
           }
 
@@ -269,7 +299,7 @@ export default apiInitializer("1.14.0", (api) => {
             (p) => p.post_number === Number(postNumber)
           );
 
-          console.log(`${LOG_PREFIX} Parent post model:`, parentPost);
+          console.log(`${LOG_PREFIX} Target embedded post model:`, parentPost);
 
           if (!parentPost) {
             console.error(
