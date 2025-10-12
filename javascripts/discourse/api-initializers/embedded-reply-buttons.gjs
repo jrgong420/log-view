@@ -386,7 +386,9 @@ export default apiInitializer("1.14.0", (api) => {
               if (!parentPost) {
                 try {
                   // Store context for auto-refresh fallback before opening composer
-                  lastReplyContext = { topicId: topic.id, parentPostNumber: Number(parentPostNumber) };
+                  const ownerElEarly = btn.closest("article.topic-post");
+                  const ownerPostNumberEarly = ownerElEarly?.dataset?.postNumber ? Number(ownerElEarly.dataset.postNumber) : null;
+                  lastReplyContext = { topicId: topic.id, parentPostNumber: Number(parentPostNumber), ownerPostNumber: ownerPostNumberEarly };
                   console.log(`${LOG_PREFIX} AutoRefresh: stored lastReplyContext (early path)`, lastReplyContext);
 
                   await composer.open({
@@ -415,7 +417,9 @@ export default apiInitializer("1.14.0", (api) => {
           };
 
           // Remember context for auto-refresh fallback
-          lastReplyContext = { topicId: topic.id, parentPostNumber: Number(parentPostNumber) };
+          const ownerEl = btn.closest("article.topic-post");
+          const ownerPostNumber = ownerEl?.dataset?.postNumber ? Number(ownerEl.dataset.postNumber) : null;
+          lastReplyContext = { topicId: topic.id, parentPostNumber: Number(parentPostNumber), ownerPostNumber };
           console.log(`${LOG_PREFIX} AutoRefresh: stored lastReplyContext`, lastReplyContext);
 
 
@@ -593,12 +597,33 @@ export default apiInitializer("1.14.0", (api) => {
         // Instead, it's embedded inside an owner's post in section.embedded-posts
         // We need to find which owner's post contains this embedded post
 
-        // Strategy 1: Try to find the embedded post element by data-post-number or data-post-id
         let ownerPostElement = null;
 
-        // Look for the embedded post inside any section.embedded-posts
-        const allEmbeddedSections = document.querySelectorAll("section.embedded-posts");
-        console.log(`${LOG_PREFIX} AutoRefresh: found ${allEmbeddedSections.length} embedded-posts sections`);
+        // Strategy 0: If we captured the owner's post number during click, use it directly
+        if (lastReplyContext?.ownerPostNumber) {
+          ownerPostElement = document.querySelector(
+            `article.topic-post[data-post-number="${lastReplyContext.ownerPostNumber}"]`
+          );
+          if (ownerPostElement) {
+            console.log(`${LOG_PREFIX} AutoRefresh: using ownerPostNumber from lastReplyContext -> #${lastReplyContext.ownerPostNumber}`);
+          }
+        }
+
+        // Strategy 1: Try to find the embedded post element by data-post-number or data-post-id inside sections
+        if (!ownerPostElement) {
+          const allEmbeddedSections = document.querySelectorAll("section.embedded-posts");
+          console.log(`${LOG_PREFIX} AutoRefresh: found ${allEmbeddedSections.length} embedded-posts sections`);
+          for (const section of allEmbeddedSections) {
+            const embeddedPost = section.querySelector(
+              `[data-post-number="${parentPostNumber}"], #post_${parentPostNumber}, #post-${parentPostNumber}`
+            );
+            if (embeddedPost) {
+              ownerPostElement = section.closest("article.topic-post");
+              console.log(`${LOG_PREFIX} AutoRefresh: found embedded post #${parentPostNumber} inside owner post #${ownerPostElement?.dataset?.postNumber}`);
+              break;
+            }
+          }
+        }
 
         for (const section of allEmbeddedSections) {
           // Check if this section contains an embedded post with our target post number
