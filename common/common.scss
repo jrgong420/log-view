@@ -195,3 +195,41 @@ section.embedded-posts {
     gap: 0.5rem;
   }
 }
+
+/* ===== Mobile-specific adjustments ===== */
+@media screen and (max-width: 768px) {
+  /* Ensure controls stay on one line and left-aligned on small screens */
+  section.embedded-posts > .embedded-posts-controls {
+    display: flex;
+    flex-direction: row; /* keep buttons in horizontal layout */
+    flex-wrap: nowrap;   /* prevent wrapping to the next line */
+    justify-content: flex-start; /* left-align the button group */
+    align-items: center; /* vertical centering */
+    gap: 0.5rem;         /* consistent spacing between buttons */
+    padding: 0.25rem 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  /* Make sure both buttons behave as non-wrapping inline items */
+  section.embedded-posts > .embedded-posts-controls .embedded-reply-button,
+  section.embedded-posts > .embedded-posts-controls .widget-button.collapse-up {
+    flex: 0 0 auto;
+  }
+
+  /* Ensure correct horizontal order: Collapse (left) then Reply (right) */
+  section.embedded-posts > .embedded-posts-controls .widget-button.collapse-up {
+    order: 1;
+  }
+  section.embedded-posts > .embedded-posts-controls .embedded-reply-button {
+    order: 2;
+  }
+
+  /* Normalize the collapse button box so it aligns with the Reply button */
+  section.embedded-posts > .embedded-posts-controls .widget-button.collapse-up {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+  }
+}
+
