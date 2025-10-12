@@ -352,6 +352,10 @@ export default apiInitializer("1.14.0", (api) => {
               // If we still don't have the parent post, try opening composer with just the post number
               if (!parentPost) {
                 try {
+                  // Store context for auto-refresh fallback before opening composer
+                  lastReplyContext = { topicId: topic.id, parentPostNumber: Number(parentPostNumber) };
+                  console.log(`${LOG_PREFIX} AutoRefresh: stored lastReplyContext (early path)`, lastReplyContext);
+
                   await composer.open({
                     action: "reply",
                     topic: topic,
@@ -524,15 +528,23 @@ export default apiInitializer("1.14.0", (api) => {
           topic_id: composerModel?.topic?.id,
         });
 
-        let parentPostNumber = post?.reply_to_post_number
-          || composerModel?.replyToPostNumber
-          || composerModel?.post?.post_number
-          || null;
+        let parentPostNumber = null;
+        let parentSource = null;
 
-        if (!parentPostNumber) {
+        if (post?.reply_to_post_number) {
+          parentPostNumber = post.reply_to_post_number;
+          parentSource = "event.reply_to_post_number";
+        } else if (composerModel?.replyToPostNumber) {
+          parentPostNumber = composerModel.replyToPostNumber;
+          parentSource = "composer.model.replyToPostNumber";
+        } else if (composerModel?.post?.post_number) {
+          parentPostNumber = composerModel.post.post_number;
+          parentSource = "composer.model.post.post_number";
+        } else {
           const currentTopic = api.container.lookup("controller:topic")?.model;
           if (currentTopic && lastReplyContext.topicId === currentTopic.id) {
             parentPostNumber = lastReplyContext.parentPostNumber;
+            parentSource = "lastReplyContext";
             console.log(`${LOG_PREFIX} AutoRefresh: using lastReplyContext fallback`, lastReplyContext);
           }
         }
@@ -542,7 +554,7 @@ export default apiInitializer("1.14.0", (api) => {
           return;
         }
 
-        console.log(`${LOG_PREFIX} AutoRefresh: target parent post #${parentPostNumber}`);
+        console.log(`${LOG_PREFIX} AutoRefresh: target parent post #${parentPostNumber} (source: ${parentSource})`);
 
         // Find the parent post element
         const parentPostElement = document.querySelector(
