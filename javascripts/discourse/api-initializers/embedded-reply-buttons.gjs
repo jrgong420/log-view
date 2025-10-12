@@ -9,6 +9,9 @@ export default apiInitializer("1.14.0", (api) => {
   // Map to track active MutationObservers per post
   const activeObservers = new Map();
   const LOG_PREFIX = "[Embedded Reply Buttons]";
+  // Module-scoped state to remember last reply parent for fallback
+  let lastReplyContext = { topicId: null, parentPostNumber: null };
+
   // Support multiple markup variants for embedded rows
   // Support multiple markup variants for embedded rows (broad but scoped to the section)
   const EMBEDDED_ITEM_SELECTOR = "[data-post-id], [data-post-number], li[id^=\"post_\"], article[id^=\"post_\"], article.topic-post, .embedded-posts__post, .embedded-post, li.embedded-post, .embedded-post-item";
@@ -374,6 +377,11 @@ export default apiInitializer("1.14.0", (api) => {
             skipJumpOnSave: true,
           };
 
+          // Remember context for auto-refresh fallback
+          lastReplyContext = { topicId: topic.id, parentPostNumber: Number(parentPostNumber) };
+          console.log(`${LOG_PREFIX} AutoRefresh: stored lastReplyContext`, lastReplyContext);
+
+
           if (parentPost) {
             composerOptions.post = parentPost;
           }
@@ -506,12 +514,34 @@ export default apiInitializer("1.14.0", (api) => {
           return;
         }
 
-        // Only process if this is a reply (has reply_to_post_number)
-        const parentPostNumber = post.reply_to_post_number;
+        // Derive parent post number from multiple sources (fallback chain)
+        const composerSvc = api.container.lookup("service:composer");
+        const composerModel = composerSvc?.model;
+        console.log(`${LOG_PREFIX} AutoRefresh: composer.model snapshot`, {
+          action: composerModel?.action,
+          replyToPostNumber: composerModel?.replyToPostNumber,
+          post_number: composerModel?.post?.post_number,
+          topic_id: composerModel?.topic?.id,
+        });
+
+        let parentPostNumber = post?.reply_to_post_number
+          || composerModel?.replyToPostNumber
+          || composerModel?.post?.post_number
+          || null;
+
         if (!parentPostNumber) {
-          console.log(`${LOG_PREFIX} AutoRefresh: skipping - no reply_to_post_number on saved post`);
+          const currentTopic = api.container.lookup("controller:topic")?.model;
+          if (currentTopic && lastReplyContext.topicId === currentTopic.id) {
+            parentPostNumber = lastReplyContext.parentPostNumber;
+            console.log(`${LOG_PREFIX} AutoRefresh: using lastReplyContext fallback`, lastReplyContext);
+          }
+        }
+
+        if (!parentPostNumber) {
+          console.log(`${LOG_PREFIX} AutoRefresh: skipping - could not determine parent post number`);
           return;
         }
+
         console.log(`${LOG_PREFIX} AutoRefresh: target parent post #${parentPostNumber}`);
 
         // Find the parent post element
@@ -535,6 +565,11 @@ export default apiInitializer("1.14.0", (api) => {
           console.log(`${LOG_PREFIX} AutoRefresh: loadMoreBtn ${loadMoreBtn ? "found" : "NOT found"}`);
 
           if (loadMoreBtn) {
+
+        // Clear stored context after handling to avoid stale data
+        lastReplyContext = { topicId: null, parentPostNumber: null };
+        console.log(`${LOG_PREFIX} AutoRefresh: cleared lastReplyContext`);
+
             console.log(`${LOG_PREFIX} AutoRefresh: clicking loadMoreBtn immediately`);
             // Click the button to refresh embedded posts
             loadMoreBtn.click();
@@ -548,6 +583,9 @@ export default apiInitializer("1.14.0", (api) => {
 
               if (btn) {
                 console.log(`${LOG_PREFIX} AutoRefresh: observer found loadMoreBtn, clicking`);
+                // Clear stored context before clicking
+                lastReplyContext = { topicId: null, parentPostNumber: null };
+                console.log(`${LOG_PREFIX} AutoRefresh: cleared lastReplyContext`);
                 btn.click();
                 observer.disconnect();
               }
