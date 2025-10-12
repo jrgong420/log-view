@@ -168,6 +168,10 @@ export default apiInitializer("1.14.0", (api) => {
             return;
           }
         }
+        }
+      }
+    });
+
   // Observe a specific embedded section until items appear, then inject and stop
   function setupSectionChildObserver(section) {
     if (!section) {
