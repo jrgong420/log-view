@@ -11,6 +11,8 @@ export default apiInitializer("1.14.0", (api) => {
   const LOG_PREFIX = "[Embedded Reply Buttons]";
   // Module-scoped state to remember last reply parent for fallback
   let lastReplyContext = { topicId: null, parentPostNumber: null };
+  // Module-scoped state to track newly created post for auto-scroll
+  let lastCreatedPost = null;
 
   // Support multiple markup variants for embedded rows
   // Support multiple markup variants for embedded rows (broad but scoped to the section)
@@ -131,9 +133,55 @@ export default apiInitializer("1.14.0", (api) => {
     }
   }
 
+  // Helper function to scroll to newly created embedded post
+  function tryScrollToNewReply(section) {
+    if (!lastCreatedPost?.postNumber) {
+      console.log(`${LOG_PREFIX} AutoScroll: no lastCreatedPost to scroll to`);
+      return false;
+    }
 
+    console.log(`${LOG_PREFIX} AutoScroll: searching for post #${lastCreatedPost.postNumber} in section`);
 
+    // Build selector to find the newly created post
+    const selectors = [
+      `[data-post-number="${lastCreatedPost.postNumber}"]`,
+      `#post_${lastCreatedPost.postNumber}`,
+      `#post-${lastCreatedPost.postNumber}`
+    ];
 
+    let foundElement = null;
+    for (const selector of selectors) {
+      foundElement = section.querySelector(selector);
+      if (foundElement) {
+        console.log(`${LOG_PREFIX} AutoScroll: found element with selector: ${selector}`);
+        break;
+      }
+    }
+
+    if (foundElement) {
+      console.log(`${LOG_PREFIX} AutoScroll: scrolling to post #${lastCreatedPost.postNumber}`);
+
+      // Scroll the element into view
+      foundElement.scrollIntoView({
+        block: "center",
+        behavior: "smooth"
+      });
+
+      // Optional: Add a temporary highlight for visual feedback
+      foundElement.classList.add("highlighted-reply");
+      setTimeout(() => {
+        foundElement.classList.remove("highlighted-reply");
+      }, 2000);
+
+      // Clear the state to avoid repeated scrolls
+      console.log(`${LOG_PREFIX} AutoScroll: clearing lastCreatedPost after successful scroll`);
+      lastCreatedPost = null;
+      return true;
+    }
+
+    console.log(`${LOG_PREFIX} AutoScroll: post #${lastCreatedPost.postNumber} not found in section yet`);
+    return false;
+  }
 
   // Function to inject a single reply button at the section level
   function injectEmbeddedReplyButtons(section) {
@@ -613,6 +661,32 @@ export default apiInitializer("1.14.0", (api) => {
     const appEvents = api.container.lookup("service:app-events");
 
     if (appEvents) {
+      // Listen to post:created to capture the newly created post details
+      console.log(`${LOG_PREFIX} AutoScroll: binding post:created listener`);
+      appEvents.on("post:created", (createdPost) => {
+        const isOwnerCommentMode = document.body.dataset.ownerCommentMode === "true";
+        console.log(`${LOG_PREFIX} AutoScroll: post:created fired`, {
+          post_number: createdPost?.post_number,
+          reply_to_post_number: createdPost?.reply_to_post_number,
+          topic_id: createdPost?.topic_id,
+          isOwnerCommentMode
+        });
+
+        if (!isOwnerCommentMode) {
+          console.log(`${LOG_PREFIX} AutoScroll: skipping - not in owner comment mode`);
+          return;
+        }
+
+        // Store the newly created post details for auto-scroll
+        lastCreatedPost = {
+          topicId: createdPost?.topic_id,
+          postNumber: createdPost?.post_number,
+          replyToPostNumber: createdPost?.reply_to_post_number,
+          timestamp: Date.now()
+        };
+        console.log(`${LOG_PREFIX} AutoScroll: stored lastCreatedPost`, lastCreatedPost);
+      });
+
       console.log(`${LOG_PREFIX} AutoRefresh: app-events service available, binding composer:saved`);
       appEvents.on("composer:saved", (post) => {
         console.log(`${LOG_PREFIX} AutoRefresh: binding composer:saved handler`);
@@ -741,6 +815,34 @@ export default apiInitializer("1.14.0", (api) => {
             console.log(`${LOG_PREFIX} AutoRefresh: clicking loadMoreBtn immediately`);
             const ok = robustClick(loadMoreBtn);
             console.log(`${LOG_PREFIX} AutoRefresh: robustClick(loadMoreBtn) =>`, ok);
+
+            // After clicking, try to scroll to the new post or set up observer
+            if (embeddedSection) {
+              // Try immediate scroll (in case post is already rendered)
+              if (!tryScrollToNewReply(embeddedSection)) {
+                // If not found yet, set up observer to scroll when it appears
+                console.log(`${LOG_PREFIX} AutoScroll: setting up observer for new post after load-more click`);
+                const scrollObserver = new MutationObserver(() => {
+                  if (tryScrollToNewReply(embeddedSection)) {
+                    console.log(`${LOG_PREFIX} AutoScroll: observer successfully scrolled to new post`);
+                    scrollObserver.disconnect();
+                  }
+                });
+
+                scrollObserver.observe(embeddedSection, {
+                  childList: true,
+                  subtree: true
+                });
+
+                // Timeout to prevent infinite observation (10 seconds)
+                setTimeout(() => {
+                  console.log(`${LOG_PREFIX} AutoScroll: observer timeout - new post not found within 10s`);
+                  scrollObserver.disconnect();
+                  // Clear stale state
+                  lastCreatedPost = null;
+                }, 10000);
+              }
+            }
           } else {
             // If button doesn't exist yet, set up an observer to wait for it
             console.log(`${LOG_PREFIX} AutoRefresh: waiting for loadMoreBtn via MutationObserver`);
@@ -757,6 +859,35 @@ export default apiInitializer("1.14.0", (api) => {
                 const ok2 = robustClick(btn);
                 console.log(`${LOG_PREFIX} AutoRefresh: robustClick(observer btn) =>`, ok2);
                 observer.disconnect();
+
+                // After clicking, set up scroll observer
+                const section = ownerPostElement.querySelector("section.embedded-posts");
+                if (section) {
+                  // Try immediate scroll
+                  if (!tryScrollToNewReply(section)) {
+                    // Set up observer to scroll when new post appears
+                    console.log(`${LOG_PREFIX} AutoScroll: setting up observer for new post after delayed load-more click`);
+                    const scrollObserver = new MutationObserver(() => {
+                      if (tryScrollToNewReply(section)) {
+                        console.log(`${LOG_PREFIX} AutoScroll: observer successfully scrolled to new post`);
+                        scrollObserver.disconnect();
+                      }
+                    });
+
+                    scrollObserver.observe(section, {
+                      childList: true,
+                      subtree: true
+                    });
+
+                    // Timeout to prevent infinite observation (10 seconds)
+                    setTimeout(() => {
+                      console.log(`${LOG_PREFIX} AutoScroll: observer timeout - new post not found within 10s`);
+                      scrollObserver.disconnect();
+                      // Clear stale state
+                      lastCreatedPost = null;
+                    }, 10000);
+                  }
+                }
               }
             });
 

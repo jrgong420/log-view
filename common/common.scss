@@ -233,3 +233,32 @@ section.embedded-posts {
   }
 }
 
+
+/* ===== Auto-scroll highlight effect ===== */
+
+/*
+ * Temporary highlight for newly created embedded posts after auto-scroll
+ * Applied for 2 seconds to provide visual feedback
+ */
+
+@keyframes highlightFadeIn {
+  0% {
+    background-color: var(--tertiary-very-low);
+    box-shadow: 0 0 0 0 var(--tertiary-low);
+  }
+  50% {
+    background-color: var(--tertiary-low);
+    box-shadow: 0 0 0 4px var(--tertiary-very-low);
+  }
+  100% {
+    background-color: var(--tertiary-very-low);
+    box-shadow: 0 0 0 0 var(--tertiary-low);
+  }
+}
+
+.highlighted-reply {
+  animation: highlightFadeIn 2s ease-in-out;
+  border-left: 3px solid var(--tertiary) !important;
+  transition: border-left 0.3s ease;
+}
+
