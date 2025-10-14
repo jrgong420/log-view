@@ -439,10 +439,13 @@ export default apiInitializer("1.14.0", (api) => {
    * Clear collapsed section expansion state
    */
   function finalizeCollapsedFlow() {
-    logDebug(`Finalize: clearing collapsed expansion state`);
+    logDebug(`Finalize: clearing collapsed expansion state and ephemeral reply state`);
     replyToCollapsedSection = false;
     replyOwnerPostNumberForExpand = null;
     expandOrchestratorActive = false;
+    // Also clear per-reply ephemeral state to avoid stale fallbacks between replies
+    lastReplyContext = { topicId: null, parentPostNumber: null };
+    lastCreatedPost = null;
   }
 
 
@@ -1161,6 +1164,17 @@ export default apiInitializer("1.14.0", (api) => {
           }
         }
 
+        // Strategy 0b: Prefer direct lookup by parent post number; section scanning may fail when collapsed
+        if (!ownerPostElement) {
+          ownerPostElement = document.querySelector(`article.topic-post[data-post-number="${parentPostNumber}"]`)
+            || document.querySelector(`#post_${parentPostNumber}`)?.closest?.("article.topic-post, article")
+            || document.querySelector(`#post-${parentPostNumber}`)?.closest?.("article.topic-post, article")
+            || document.querySelector(`[data-post-number="${parentPostNumber}"]`)?.closest?.("article.topic-post, article");
+          if (ownerPostElement) {
+            logDebug(`AutoRefresh: direct owner post lookup succeeded for #${parentPostNumber}`);
+          }
+        }
+
         // Strategy 1: Try to find the embedded post element by data-post-number or data-post-id inside sections
         // Hoist sections outside the conditional and iterate safely
         const allEmbeddedSections = document.querySelectorAll("section.embedded-posts");
@@ -1193,11 +1207,8 @@ export default apiInitializer("1.14.0", (api) => {
           }
         }
 
-        // Strategy 1c: Single section fallback
-        if (!ownerPostElement && allEmbeddedSections.length === 1) {
-          ownerPostElement = allEmbeddedSections[0].closest("article.topic-post") || allEmbeddedSections[0].closest("article") || allEmbeddedSections[0].parentElement;
-          logDebug(`AutoRefresh: single embedded section fallback -> using its closest article`);
-        }
+        // Strategy 1c: Removed single-section fallback to prevent wrong owner selection when only one embedded section is present
+        // (When collapsed, scanning sections is unreliable; we rely on direct owner lookup instead.)
 
         // Strategy 2: Direct lookups for the owner post element
         if (!ownerPostElement) {
