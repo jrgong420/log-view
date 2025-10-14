@@ -67,60 +67,60 @@ body:not(.theme-component-access-granted) {
 }
 
 
+/* ===== Reply Button Icon Color Override ===== */
+
+/* Override the default grey color for reply button icons */
+nav.post-controls button.reply .d-icon {
+  color: var(--tertiary) !important;
+}
+
+
+/* ===== Show Replies Button Styling ===== */
+
+/* Make collapsed state match expanded state appearance */
+
+/* Desktop styling for collapsed state */
+@media screen and (min-width: 769px) {
+  button.post-action-menu__show-replies[aria-expanded="false"] {
+    background: var(--primary-300);
+    color: var(--primary);
+  }
+}
+
+/* Mobile styling for collapsed state */
+@media screen and (max-width: 768px) {
+  button.post-action-menu__show-replies[aria-expanded="false"] {
+    background: var(--primary-low);
+    color: var(--primary-high);
+    box-shadow: 0 0 0 1px var(--primary-300);
+    z-index: 1;
+    margin-left: 1px;
+  }
+}
+
+
 /* ===== Hide Reply Buttons for Non-Owners ===== */
 
 /*
- * IMPORTANT: All rules are scoped under body.hide-reply-buttons-non-owners
- * This body class is ONLY added in configured categories for non-owner users
- * The JavaScript in hide-reply-buttons.gjs manages this class based on:
- *   - Setting enabled
- *   - Topic in configured category
- *   - Current user is NOT the topic owner
+ * IMPORTANT: These rules target posts classified as non-owner-post
+ * The JavaScript in hide-reply-buttons.gjs adds this class to posts based on:
+ *   - Setting enabled (hide_reply_buttons_for_non_owners)
+ *   - Topic in configured category (owner_comment_categories)
+ *   - Post author is NOT the topic owner
+ *
+ * This applies in both filtered and regular topic views.
+ * Does not check Allowed groups setting.
  */
 
-body.hide-reply-buttons-non-owners {
-  /* Hide top-level reply buttons (timeline and topic footer) */
-  .timeline-footer-controls .create,
-  .timeline-footer-controls .reply-to-post,
-  .topic-footer-main-buttons .create,
-  .topic-footer-main-buttons .reply-to-post {
-    display: none !important;
-  }
-
-  /* Style post-level reply buttons as primary actions */
-
-  /* Uses more specific selectors to override core Discourse styles */
+/* Hide post-level reply buttons on posts authored by non-owners */
+article.topic-post.non-owner-post {
   nav.post-controls .actions button.create,
   nav.post-controls .actions button.reply,
   nav.post-controls .actions button.reply-to-post,
   .topic-body .actions button.create,
   .topic-body .actions button.reply,
   .topic-body .actions button.reply-to-post {
-    background-color: var(--tertiary) !important;
-    color: var(--secondary) !important;
-    border-color: transparent !important;
-    opacity: 1 !important;
-    transition: background 0.25s, opacity 0.25s !important;
-
-    &:hover {
-      background-color: var(--tertiary-hover, var(--tertiary)) !important;
-      color: var(--secondary) !important;
-      opacity: 1 !important;
-      filter: brightness(0.9);
-    }
-
-    &:active {
-      background-color: var(--tertiary-high, var(--tertiary)) !important;
-      color: var(--secondary) !important;
-      filter: brightness(0.85);
-    }
-
-    &:focus {
-      background-color: var(--tertiary) !important;
-      color: var(--secondary) !important;
-      outline: 2px solid var(--tertiary-low);
-      outline-offset: 2px;
-    }
+    display: none !important;
   }
 }
 

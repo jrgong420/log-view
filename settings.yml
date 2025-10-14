@@ -42,5 +42,5 @@ behavior_for_anonymous:
 hide_reply_buttons_for_non_owners:
   type: bool
   default: false
-  description: "Hide top-level reply buttons from non-owners in configured categories. Post-level reply buttons remain visible and are styled as primary actions. This is a UI-only restriction."
+  description: "Hide reply buttons on posts authored by non-owners in configured Owner comment categories. Applies in both filtered and regular topic views. Does not check Allowed groups. This is a UI-only restriction and does not prevent replies via keyboard shortcuts or API calls."
 
