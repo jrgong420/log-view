@@ -84,13 +84,11 @@ nav.post-controls button.reply .d-icon {
  * - Both buttons have proper hover, active, and focus states for accessibility
  */
 
-/* Desktop — Show Replies Button (both states) */
+/* Desktop — Show Replies Button (collapsed state) */
 @media screen and (min-width: 769px) {
-  button.post-action-menu__show-replies[aria-expanded="false"],
-  button.post-action-menu__show-replies[aria-expanded="true"] {
-    background: var(--primary-300);
-    color: var(--primary);
-    border: 1px solid var(--primary-300);
+  button.post-action-menu__show-replies[aria-expanded="false"] {
+    color: var(--primary-900);
+    background: var(--primary-100);
     transition: all 0.2s ease;
 
     .d-icon {
@@ -98,11 +96,8 @@ nav.post-controls button.reply .d-icon {
     }
 
     &:hover {
-      filter: brightness(0.95);
-    }
-
-    &:active {
-      filter: brightness(0.9);
+      color: var(--d-post-control-text-color--hover);
+      background: var(--d-post-control-background--hover);
     }
 
     &:focus-visible {
@@ -110,19 +105,20 @@ nav.post-controls button.reply .d-icon {
       outline-offset: 2px;
     }
   }
+
+  /* Expanded state keeps default Discourse styling */
+  button.post-action-menu__show-replies[aria-expanded="true"] {
+    .d-icon {
+      color: currentColor;
+    }
+  }
 }
 
-/* Mobile — Show Replies Button (both states) */
+/* Mobile — Show Replies Button (collapsed state) */
 @media screen and (max-width: 768px) {
-  button.post-action-menu__show-replies[aria-expanded="false"],
-  button.post-action-menu__show-replies[aria-expanded="true"] {
-    background: var(--primary-low);
-    color: var(--primary-high);
-    box-shadow: 0 0 0 1px var(--primary-300);
-    z-index: 1;
-    margin-left: 1px;
-    padding: 0.45rem 0.65rem;
-    font-size: var(--font-down-1);
+  button.post-action-menu__show-replies[aria-expanded="false"] {
+    color: var(--primary-900);
+    background: var(--primary-100);
     transition: all 0.2s ease;
 
     .d-icon {
@@ -130,52 +126,61 @@ nav.post-controls button.reply .d-icon {
     }
 
     &:hover {
-      filter: brightness(0.95);
-    }
-
-    &:active {
-      filter: brightness(0.9);
+      color: var(--d-post-control-text-color--hover);
+      background: var(--d-post-control-background--hover);
     }
 
     &:focus-visible {
       outline: 2px solid var(--primary-300);
       outline-offset: 2px;
+    }
+  }
+
+  /* Expanded state keeps default Discourse styling */
+  button.post-action-menu__show-replies[aria-expanded="true"] {
+    .d-icon {
+      color: currentColor;
     }
   }
 }
 
 /* Reply Button — Primary Action Styling (Desktop & Mobile) */
 button.post-action-menu__reply {
-  background: var(--tertiary);
-  color: var(--secondary);
-  border: 1px solid var(--tertiary);
-  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  font-weight: normal;
+  color: var(--d-button-primary-text-color);
+  background-color: var(--d-button-primary-bg-color);
+  background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0));
+  border-radius: var(--d-button-border-radius);
+  transition: var(--d-button-transition);
+  cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0);
+  font-size: var(--font-0);
+  line-height: normal;
+  box-sizing: border-box;
+  padding: 0.5em 0.65em;
+  border: var(--d-button-border);
+  opacity: 1;
 
   .d-icon {
-    color: currentColor;
+    color: var(--d-button-primary-text-color);
   }
 
   &:hover {
-    background: var(--tertiary-hover, var(--tertiary));
-    filter: brightness(0.95);
-  }
+    background-color: var(--d-button-primary-bg-color--hover);
+    color: var(--d-button-primary-text-color--hover);
 
-  &:active {
-    background: var(--tertiary-high, var(--tertiary));
-    filter: brightness(0.9);
+    .d-icon {
+      color: var(--d-button-primary-text-color--hover);
+    }
   }
 
   &:focus-visible {
     outline: 2px solid var(--tertiary-low);
     outline-offset: 2px;
-  }
-}
-
-/* Mobile — Reply Button tap target optimization */
-@media screen and (max-width: 768px) {
-  button.post-action-menu__reply {
-    padding: 0.45rem 0.65rem;
-    font-size: var(--font-down-1);
   }
 }
 
