@@ -229,7 +229,10 @@ body.hide-reply-buttons-non-owners {
 
   /* Legacy topic footer buttons outlet */
   .topic-footer-buttons .create,
-  .topic-footer-buttons .reply-to-post {
+  .topic-footer-buttons .reply-to-post,
+
+  /* Embedded reply buttons (section-level) */
+  .embedded-reply-button {
     display: none !important;
   }
 }

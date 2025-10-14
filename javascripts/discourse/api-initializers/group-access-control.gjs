@@ -54,20 +54,28 @@ export default apiInitializer("1.15.0", (api) => {
     const userGroupIds = userGroups.map((g) => g.id);
     const userGroupNames = userGroups.map((g) => g.name || g.full_name || g.slug);
 
+    // Normalize both arrays to numbers for comparison
+    const normalizedAllowedIds = allowedGroupIds.map(id => Number(id));
+    const normalizedUserGroupIds = userGroupIds.map(id => Number(id));
+
     log.debug("User group membership", {
-      userGroupIds,
+      userGroupIds: normalizedUserGroupIds,
       userGroupNames,
-      allowedGroupIds
+      allowedGroupIds: normalizedAllowedIds,
+      rawUserGroupIds: userGroupIds,
+      rawAllowedGroupIds: allowedGroupIds
     });
 
-    const isMember = allowedGroupIds.some((allowedId) =>
-      userGroupIds.includes(allowedId)
+    const isMember = normalizedAllowedIds.some((allowedId) =>
+      normalizedUserGroupIds.includes(allowedId)
     );
 
     log.info("Access decision", {
       decision: isMember ? "GRANTED" : "DENIED",
       isMember,
-      userGroupNames
+      userGroupNames,
+      allowedGroupIds: normalizedAllowedIds,
+      userGroupIds: normalizedUserGroupIds
     });
 
     return isMember;
