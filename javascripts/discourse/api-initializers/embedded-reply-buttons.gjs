@@ -196,6 +196,17 @@ export default apiInitializer("1.14.0", (api) => {
         foundElement.classList.remove("highlighted-reply");
       }, 2000);
 
+      // Hide duplicate post in the main stream (owner comment mode only)
+      try {
+        const pn = lastCreatedPost?.postNumber;
+        const pid = lastCreatedPost?.postId;
+        if (pn || pid) {
+          hideMainStreamDuplicateInOwnerMode(pn, pid);
+        }
+      } catch (err) {
+        console.warn(`${LOG_PREFIX} Failed to hide duplicate in main stream`, err);
+      }
+
       // Clear the state to avoid repeated scrolls
       console.log(`${LOG_PREFIX} AutoScroll: clearing lastCreatedPost after successful scroll`);
       lastCreatedPost = null;
@@ -205,6 +216,49 @@ export default apiInitializer("1.14.0", (api) => {
     console.log(`${LOG_PREFIX} AutoScroll: post #${lastCreatedPost.postNumber} not found in section yet`);
     return false;
   }
+
+  // Hide the newly appended post in the main stream when in owner comment mode
+  function hideMainStreamDuplicateInOwnerMode(postNumber, postId) {
+    try {
+      const isOwnerCommentMode = document.body.dataset.ownerCommentMode === "true";
+      if (!isOwnerCommentMode) return;
+      if (!postNumber && !postId) return;
+
+      const candidates = [
+        `article.topic-post[data-post-number="${postNumber}"]`,
+        `article#post_${postNumber}`,
+        `article#post-${postNumber}`
+      ];
+
+      let article = null;
+      for (const sel of candidates) {
+        if (!postNumber) break;
+        const el = document.querySelector(sel);
+        if (el && !el.closest("section.embedded-posts")) {
+          article = el.closest("article.topic-post, article");
+          break;
+        }
+      }
+
+      if (!article && postId) {
+        const el2 = document.querySelector(`article.topic-post [data-post-id="${postId}"]`);
+        if (el2 && !el2.closest("section.embedded-posts")) {
+          article = el2.closest("article.topic-post, article");
+        }
+      }
+
+      if (article) {
+        article.style.display = "none";
+        article.dataset.ownerModeHidden = "true";
+        console.log(`${LOG_PREFIX} Hidden main stream post #${postNumber || "(unknown)"} in owner mode`);
+      } else {
+        console.log(`${LOG_PREFIX} No main stream duplicate found to hide for post #${postNumber || "(unknown)"}`);
+      }
+    } catch (err) {
+      console.warn(`${LOG_PREFIX} Failed to hide main stream duplicate`, err);
+    }
+  }
+
 
   /**
    * Shared function to open composer for replying to owner's post
