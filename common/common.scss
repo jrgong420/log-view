@@ -187,13 +187,21 @@ button.post-action-menu__reply {
 /* ===== Hide Reply Buttons for Non-Owners ===== */
 
 /*
- * IMPORTANT: These rules target posts classified as non-owner-post
- * The JavaScript in hide-reply-buttons.gjs adds this class to posts based on:
- *   - Setting enabled (hide_reply_buttons_for_non_owners)
- *   - Topic in configured category (owner_comment_categories)
- *   - Post author is NOT the topic owner
+ * IMPORTANT: This feature has two parts:
  *
- * This applies in both filtered and regular topic views.
+ * 1. Post-level hiding: Targets posts classified as non-owner-post
+ *    The JavaScript in hide-reply-buttons.gjs adds this class to posts based on:
+ *      - Setting enabled (hide_reply_buttons_for_non_owners)
+ *      - Topic in configured category (owner_comment_categories)
+ *      - Post author is NOT the topic owner
+ *
+ * 2. Top-level hiding: Targets topic-level reply buttons when viewer is not owner
+ *    The JavaScript adds body class hide-reply-buttons-non-owners when:
+ *      - Setting enabled (hide_reply_buttons_for_non_owners)
+ *      - Topic in configured category (owner_comment_categories)
+ *      - Viewer is anonymous OR viewer is NOT the topic owner
+ *
+ * Both apply in filtered and regular topic views.
  * Does not check Allowed groups setting.
  */
 
@@ -205,6 +213,23 @@ article.topic-post.non-owner-post {
   .topic-body .actions button.create,
   .topic-body .actions button.reply,
   .topic-body .actions button.reply-to-post {
+    display: none !important;
+  }
+}
+
+/* Hide top-level reply buttons when viewer is not the topic owner */
+body.hide-reply-buttons-non-owners {
+  /* Timeline footer controls (desktop) */
+  .timeline-footer-controls .create,
+  .timeline-footer-controls .reply-to-post,
+
+  /* Topic footer main buttons */
+  .topic-footer-main-buttons .create,
+  .topic-footer-main-buttons .reply-to-post,
+
+  /* Legacy topic footer buttons outlet */
+  .topic-footer-buttons .create,
+  .topic-footer-buttons .reply-to-post {
     display: none !important;
   }
 }

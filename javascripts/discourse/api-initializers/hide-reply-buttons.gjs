@@ -6,8 +6,12 @@ import { createLogger } from "../lib/logger";
 /**
  * Hide Reply Buttons for Non-Owners
  *
- * When enabled, hides reply buttons on posts authored by non-owners in categories
- * configured for owner comments. Applies in both filtered and regular topic views.
+ * When enabled, hides reply buttons in two ways:
+ * 1. Post-level: Hides reply buttons on posts authored by non-owners
+ * 2. Top-level: Hides topic-level reply buttons (timeline footer, topic footer)
+ *    when the viewer is not the topic owner
+ *
+ * Applies in both filtered and regular topic views.
  * Does not check Allowed groups setting.
  *
  * This is a UI-only restriction and does not prevent replies via keyboard
@@ -167,7 +171,8 @@ export default apiInitializer("1.15.0", (api) => {
 
       // Guard 1: Check if setting is enabled
       if (!settings.hide_reply_buttons_for_non_owners) {
-        log.debug("Setting disabled; skipping");
+        log.debug("Setting disabled; removing body class and skipping");
+        document.body.classList.remove("hide-reply-buttons-non-owners");
         return;
       }
 
@@ -176,7 +181,8 @@ export default apiInitializer("1.15.0", (api) => {
       // Guard 2: Get topic data
       const topic = api.container.lookup("controller:topic")?.model;
       if (!topic) {
-        log.debug("No topic found; skipping");
+        log.debug("No topic found; removing body class and skipping");
+        document.body.classList.remove("hide-reply-buttons-non-owners");
         return;
       }
 
@@ -195,7 +201,8 @@ export default apiInitializer("1.15.0", (api) => {
       });
 
       if (!enabledCategories.includes(categoryId)) {
-        log.debug("Category not configured; skipping");
+        log.debug("Category not configured; removing body class and skipping");
+        document.body.classList.remove("hide-reply-buttons-non-owners");
         return;
       }
 
@@ -205,11 +212,26 @@ export default apiInitializer("1.15.0", (api) => {
       const topicOwnerId = topic.details?.created_by?.id;
 
       if (!topicOwnerId) {
-        log.warn("No topic owner data available; skipping");
+        log.warn("No topic owner data available; removing body class and skipping");
+        document.body.classList.remove("hide-reply-buttons-non-owners");
         return;
       }
 
       log.info("Starting post classification", { topicOwnerId });
+
+      // Determine if top-level reply buttons should be hidden
+      // Hide if viewer is anonymous OR viewer is not the topic owner
+      const currentUser = api.getCurrentUser();
+      const shouldHideTopLevel = !currentUser || currentUser.id !== topicOwnerId;
+
+      log.debug("Top-level button visibility decision", {
+        currentUserId: currentUser?.id,
+        topicOwnerId,
+        shouldHideTopLevel
+      });
+
+      // Toggle body class for top-level button hiding
+      document.body.classList.toggle("hide-reply-buttons-non-owners", shouldHideTopLevel);
 
       // Process visible posts with a small delay to ensure DOM is ready
       // Discourse's post rendering can happen after afterRender in some cases
