@@ -75,26 +75,107 @@ nav.post-controls button.reply .d-icon {
 }
 
 
-/* ===== Show Replies Button Styling ===== */
+/* ===== Post Action Menu — Visual Consistency ===== */
 
-/* Make collapsed state match expanded state appearance */
+/*
+ * Unified styling for Show Replies and Reply buttons in post action menu
+ * - Show Replies: consistent appearance in both collapsed/expanded states
+ * - Reply: styled as primary action button to stand out
+ * - Both buttons have proper hover, active, and focus states for accessibility
+ */
 
-/* Desktop styling for collapsed state */
+/* Desktop — Show Replies Button (both states) */
 @media screen and (min-width: 769px) {
-  button.post-action-menu__show-replies[aria-expanded="false"] {
+  button.post-action-menu__show-replies[aria-expanded="false"],
+  button.post-action-menu__show-replies[aria-expanded="true"] {
     background: var(--primary-300);
     color: var(--primary);
+    border: 1px solid var(--primary-300);
+    transition: all 0.2s ease;
+
+    .d-icon {
+      color: currentColor;
+    }
+
+    &:hover {
+      filter: brightness(0.95);
+    }
+
+    &:active {
+      filter: brightness(0.9);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--primary-300);
+      outline-offset: 2px;
+    }
   }
 }
 
-/* Mobile styling for collapsed state */
+/* Mobile — Show Replies Button (both states) */
 @media screen and (max-width: 768px) {
-  button.post-action-menu__show-replies[aria-expanded="false"] {
+  button.post-action-menu__show-replies[aria-expanded="false"],
+  button.post-action-menu__show-replies[aria-expanded="true"] {
     background: var(--primary-low);
     color: var(--primary-high);
     box-shadow: 0 0 0 1px var(--primary-300);
     z-index: 1;
     margin-left: 1px;
+    padding: 0.45rem 0.65rem;
+    font-size: var(--font-down-1);
+    transition: all 0.2s ease;
+
+    .d-icon {
+      color: currentColor;
+    }
+
+    &:hover {
+      filter: brightness(0.95);
+    }
+
+    &:active {
+      filter: brightness(0.9);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--primary-300);
+      outline-offset: 2px;
+    }
+  }
+}
+
+/* Reply Button — Primary Action Styling (Desktop & Mobile) */
+button.post-action-menu__reply {
+  background: var(--tertiary);
+  color: var(--secondary);
+  border: 1px solid var(--tertiary);
+  transition: all 0.2s ease;
+
+  .d-icon {
+    color: currentColor;
+  }
+
+  &:hover {
+    background: var(--tertiary-hover, var(--tertiary));
+    filter: brightness(0.95);
+  }
+
+  &:active {
+    background: var(--tertiary-high, var(--tertiary));
+    filter: brightness(0.9);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--tertiary-low);
+    outline-offset: 2px;
+  }
+}
+
+/* Mobile — Reply Button tap target optimization */
+@media screen and (max-width: 768px) {
+  button.post-action-menu__reply {
+    padding: 0.45rem 0.65rem;
+    font-size: var(--font-down-1);
   }
 }
 
