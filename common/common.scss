@@ -146,41 +146,40 @@ nav.post-controls button.reply .d-icon {
 
 /* Reply Button — Primary Action Styling (Desktop & Mobile) */
 button.post-action-menu__reply {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  font-weight: normal;
-  color: var(--d-button-primary-text-color);
-  background-color: var(--d-button-primary-bg-color);
-  background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0));
-  border-radius: var(--d-button-border-radius);
-  transition: var(--d-button-transition);
-  cursor: pointer;
-  border: 1px solid rgba(0, 0, 0, 0);
-  font-size: var(--font-0);
-  line-height: normal;
-  box-sizing: border-box;
-  padding: 0.5em 0.65em;
-  border: var(--d-button-border);
-  opacity: 1;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  font-weight: normal !important;
+  color: var(--d-button-primary-text-color) !important;
+  background-color: var(--d-button-primary-bg-color) !important;
+  background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)) !important;
+  border-radius: var(--d-button-border-radius) !important;
+  transition: var(--d-button-transition) !important;
+  cursor: pointer !important;
+  font-size: var(--font-0) !important;
+  line-height: normal !important;
+  box-sizing: border-box !important;
+  padding: 0.5em 0.65em !important;
+  border: var(--d-button-border) !important;
+  opacity: 1 !important;
 
   .d-icon {
-    color: var(--d-button-primary-text-color);
+    color: var(--d-button-primary-text-color) !important;
   }
 
   &:hover {
-    background-color: var(--d-button-primary-bg-color--hover);
-    color: var(--d-button-primary-text-color--hover);
+    background-color: var(--d-button-primary-bg-color--hover) !important;
+    color: var(--d-button-primary-text-color--hover) !important;
 
     .d-icon {
-      color: var(--d-button-primary-text-color--hover);
+      color: var(--d-button-primary-text-color--hover) !important;
     }
   }
 
   &:focus-visible {
-    outline: 2px solid var(--tertiary-low);
-    outline-offset: 2px;
+    outline: 2px solid var(--tertiary-low) !important;
+    outline-offset: 2px !important;
   }
 }
 
