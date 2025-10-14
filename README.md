@@ -194,17 +194,32 @@ When testing group-based access control:
 
 ### Debug Logging
 
-The theme includes comprehensive debug logging for all features. To view logs:
+The theme includes a configurable logging system with different verbosity levels:
 
+**Default Mode (Production):**
+- Shows only important events, warnings, and errors (~35 messages per interaction)
+- Suitable for production use and general debugging
+
+**Debug Mode (Development):**
+- Shows verbose debugging information (~150 messages per interaction)
+- Useful for detailed troubleshooting and development
+
+**To enable debug mode:**
+1. Edit `javascripts/discourse/api-initializers/embedded-reply-buttons.gjs`
+2. Change `const DEBUG = false;` to `const DEBUG = true;`
+3. Save and refresh
+
+**Viewing logs:**
 1. Open your browser's developer console (F12)
 2. Look for messages prefixed with:
    - `[Embedded Reply Buttons]` - Embedded reply button injection and composer opening
    - `[Group Access Control]` - Group membership checks
    - `[Owner Comments]` - Owner filtering logic
    - `[Hide Reply Buttons]` - Reply button hiding decisions
-3. To disable debug logging, edit the initializer files and set `DEBUG = false`
 
 **Tip**: Filter console output by feature name (e.g., `[Embedded Reply Buttons]`) to focus on specific functionality.
+
+For detailed information about the logging system, see [docs/LOGGING_GUIDE.md](docs/LOGGING_GUIDE.md).
 
 ## License
 

@@ -1216,12 +1216,16 @@ export default apiInitializer("1.14.0", (api) => {
         }
         logDebug(`AutoRefresh: targeting owner post #${ownerPostElement.dataset?.postNumber || ownerPostElement.id || "(unknown)"} for refresh`);
 
-        // Check if we need to handle collapsed section expansion
+        // Decide expansion based on current DOM state (more robust than stored flags)
         const ownerPostNumber = Number(ownerPostElement.dataset?.postNumber);
-        const needsExpansion = replyToCollapsedSection && replyOwnerPostNumberForExpand === ownerPostNumber;
+        const sectionNow = ownerPostElement.querySelector("section.embedded-posts");
+        const hasToggleNow = ownerPostElement.querySelector(
+          ".post-action-menu__show-replies, .show-replies, .post-action-menu__show-replies"
+        );
+        const collapsedNow = !sectionNow || !!hasToggleNow;
 
-        if (needsExpansion) {
-          logDebug(`AutoRefresh: handling collapsed section for owner post #${ownerPostNumber}`);
+        if (collapsedNow) {
+          logInfo(`AutoRefresh: collapsed detected for owner post #${ownerPostNumber} — expanding and loading replies`);
 
           // Prevent duplicate orchestration
           if (expandOrchestratorActive) {
@@ -1238,7 +1242,7 @@ export default apiInitializer("1.14.0", (api) => {
               const expanded = await expandEmbeddedReplies(ownerPostElement, { timeoutMs: 5000 });
 
               if (!expanded) {
-                logDebug(`AutoRefresh: expansion failed for post #${ownerPostNumber}, attempting best-effort`);
+                logWarn(`AutoRefresh: expansion failed for post #${ownerPostNumber}, attempting best-effort`);
                 // Hide duplicate anyway
                 if (lastCreatedPost?.postNumber || lastCreatedPost?.postId) {
                   hideMainStreamDuplicateInOwnerMode(lastCreatedPost.postNumber, lastCreatedPost.postId);
@@ -1252,36 +1256,41 @@ export default apiInitializer("1.14.0", (api) => {
               const allLoaded = await loadAllEmbeddedReplies(ownerPostElement, { maxClicks: 20, timeoutMs: 10000 });
 
               if (!allLoaded) {
-                logDebug(`AutoRefresh: loading all replies timed out or reached max clicks for post #${ownerPostNumber}`);
+                logWarn(`AutoRefresh: loading all replies timed out or reached max clicks for post #${ownerPostNumber}`);
                 // Continue anyway - the new post might already be visible
               }
 
-              // Step 3: Scroll to new reply
+              // Step 3: Scroll to new reply (best-effort; falls back to bottom)
               const section = ownerPostElement.querySelector("section.embedded-posts");
-              if (section && lastCreatedPost) {
-                logDebug(`AutoRefresh: Step 3 - Attempting to scroll to new post #${lastCreatedPost.postNumber}`);
-                const scrolled = tryScrollToNewReply(section);
+              if (section) {
+                if (lastCreatedPost?.postNumber) {
+                  logDebug(`AutoRefresh: Step 3 - Attempting to scroll to new post #${lastCreatedPost.postNumber}`);
+                  const scrolled = tryScrollToNewReply(section);
 
-                if (!scrolled) {
-                  logDebug(`AutoRefresh: immediate scroll failed, setting up observer`);
-                  const scrollObserver = new MutationObserver(() => {
-                    if (tryScrollToNewReply(section)) {
-                      logDebug(`AutoRefresh: observer successfully scrolled to new post`);
+                  if (!scrolled) {
+                    logDebug(`AutoRefresh: immediate scroll failed, setting up observer`);
+                    const scrollObserver = new MutationObserver(() => {
+                      if (tryScrollToNewReply(section)) {
+                        logDebug(`AutoRefresh: observer successfully scrolled to new post`);
+                        scrollObserver.disconnect();
+                      }
+                    });
+
+                    scrollObserver.observe(section, {
+                      childList: true,
+                      subtree: true
+                    });
+
+                    // Timeout for observer
+                    setTimeout(() => {
+                      logDebug(`AutoRefresh: scroll observer timeout`);
                       scrollObserver.disconnect();
-                    }
-                  });
-
-                  scrollObserver.observe(section, {
-                    childList: true,
-                    subtree: true
-                  });
-
-                  // Timeout for observer
-                  setTimeout(() => {
-                    logDebug(`AutoRefresh: scroll observer timeout`);
-                    scrollObserver.disconnect();
-                    lastCreatedPost = null;
-                  }, 10000);
+                      lastCreatedPost = null;
+                    }, 10000);
+                  }
+                } else {
+                  // Fallback: scroll to bottom of section to reveal latest reply
+                  section.lastElementChild?.scrollIntoView({ block: "end", behavior: "smooth" });
                 }
               }
 
