@@ -44,9 +44,15 @@ export default apiInitializer("1.34.0", (api) => {
   api.registerValueTransformer("post-class", ({ value, context }) => {
     const { post } = context;
 
+    // If debug is enabled, add a visible marker class to all posts to verify transformer is running
+    let classes = Array.isArray(value) ? [...value] : [value].filter(Boolean);
+    if (settings.debug_owner_reply_filter) {
+      classes.push("owner-reply-filter-mark");
+    }
+
     // Defensive checks - ensure we have the data we need
     if (!post || !post.topic) {
-      return value;
+      return classes.length ? classes : value;
     }
 
     const topicOwnerId = post.topic.user_id;
@@ -70,12 +76,12 @@ export default apiInitializer("1.34.0", (api) => {
 
     // Not authored by topic owner - don't mark
     if (postAuthorId !== topicOwnerId) {
-      return value;
+      return classes.length ? classes : value;
     }
 
     // Top-level post (no reply_to_post_number) - don't mark
     if (!post.reply_to_post_number) {
-      return value;
+      return classes.length ? classes : value;
     }
 
     // Determine if this is a self-reply
@@ -95,7 +101,7 @@ export default apiInitializer("1.34.0", (api) => {
 
     if (isSelfReply) {
       debugLog(`Post ${post.id}: owner self-reply detected; not hiding`);
-      return value;
+      return classes.length ? classes : value;
     }
 
     // All conditions met: this is an owner reply to another user
@@ -103,7 +109,8 @@ export default apiInitializer("1.34.0", (api) => {
       `Post ${post.id}: Marking as hidden-owner-reply (owner ${topicOwnerId} replied to non-owner)`
     );
 
-    return [...value, "hidden-owner-reply"];
+    classes.push("hidden-owner-reply");
+    return classes.length ? classes : value;
   });
 
   debugLog("Owner reply filter transformer registered");

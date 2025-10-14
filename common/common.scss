@@ -455,8 +455,9 @@ section.embedded-posts {
  */
 
 /* Hide posts only when filter is active */
-body.owner-reply-filter-active article.hidden-owner-reply {
-  display: none;
+body.owner-reply-filter-active article.hidden-owner-reply,
+body.owner-reply-filter-active .topic-post.hidden-owner-reply {
+  display: none !important;
 }
 
 /* Filter notice banner */
