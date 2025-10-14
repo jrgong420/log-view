@@ -220,18 +220,31 @@ export default apiInitializer("1.15.0", (api) => {
       log.info("Starting post classification", { topicOwnerId });
 
       // Determine if top-level reply buttons should be hidden
-      // Hide if viewer is anonymous OR viewer is not the topic owner
       const currentUser = api.getCurrentUser();
-      const shouldHideTopLevel = !currentUser || currentUser.id !== topicOwnerId;
+
+      // Normalize IDs to numbers for type-safe comparison
+      // This prevents bugs where currentUser.id (Number) !== topicOwnerId (String)
+      const currentUserId = currentUser?.id ? Number(currentUser.id) : null;
+      const normalizedTopicOwnerId = Number(topicOwnerId);
+
+      const isTopicOwner = currentUserId !== null && currentUserId === normalizedTopicOwnerId;
 
       log.debug("Top-level button visibility decision", {
-        currentUserId: currentUser?.id,
-        topicOwnerId,
-        shouldHideTopLevel
+        currentUserId,
+        currentUserIdType: typeof currentUser?.id,
+        topicOwnerId: normalizedTopicOwnerId,
+        topicOwnerIdType: typeof topicOwnerId,
+        isTopicOwner
       });
 
-      // Toggle body class for top-level button hiding
-      document.body.classList.toggle("hide-reply-buttons-non-owners", shouldHideTopLevel);
+      // Show buttons if user is the topic owner, hide otherwise
+      if (isTopicOwner) {
+        document.body.classList.remove("hide-reply-buttons-non-owners");
+        log.info("User is topic owner - showing top-level reply buttons");
+      } else {
+        document.body.classList.add("hide-reply-buttons-non-owners");
+        log.info("User is not topic owner - hiding top-level reply buttons");
+      }
 
       // Process visible posts with a small delay to ensure DOM is ready
       // Discourse's post rendering can happen after afterRender in some cases
