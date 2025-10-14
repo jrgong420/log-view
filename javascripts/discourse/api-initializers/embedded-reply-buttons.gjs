@@ -19,6 +19,11 @@ export default apiInitializer("1.14.0", (api) => {
   let suppressStandardReplyScroll = false;
   let suppressedReplyPostNumber = null;
 
+  // Collapsed section expansion state
+  let replyToCollapsedSection = false;
+  let replyOwnerPostNumberForExpand = null;
+  let expandOrchestratorActive = false;
+
   // Support multiple markup variants for embedded rows
   // Support multiple markup variants for embedded rows (broad but scoped to the section)
   const EMBEDDED_ITEM_SELECTOR = "[data-post-id], [data-post-number], li[id^=\"post_\"], article[id^=\"post_\"], article.topic-post, .embedded-posts__post, .embedded-post, li.embedded-post, .embedded-post-item";
@@ -258,6 +263,167 @@ export default apiInitializer("1.14.0", (api) => {
       console.warn(`${LOG_PREFIX} Failed to hide main stream duplicate`, err);
     }
   }
+
+  /**
+   * Expand the embedded replies section for a collapsed owner post
+   * @param {HTMLElement} ownerPostElement - The owner post article element
+   * @param {Object} options - Configuration options
+   * @param {number} options.timeoutMs - Maximum time to wait for expansion (default: 5000ms)
+   * @returns {Promise<boolean>} - True if expansion succeeded, false otherwise
+   */
+  async function expandEmbeddedReplies(ownerPostElement, { timeoutMs = 5000 } = {}) {
+    if (!ownerPostElement) {
+      console.log(`${LOG_PREFIX} Expand: no owner post element provided`);
+      return false;
+    }
+
+    const postNumber = ownerPostElement.dataset?.postNumber;
+    console.log(`${LOG_PREFIX} Expand: attempting to expand embedded replies for post #${postNumber}`);
+
+    // Check if already expanded
+    const existingSection = ownerPostElement.querySelector("section.embedded-posts");
+    if (existingSection) {
+      console.log(`${LOG_PREFIX} Expand: section already exists for post #${postNumber}`);
+      return true;
+    }
+
+    // Find the expand/toggle button (reuse selectors from "show replies" handler)
+    const toggleBtn = ownerPostElement.querySelector(
+      ".post-controls .show-replies, .show-replies, .post-action-menu__show-replies"
+    );
+
+    if (!toggleBtn) {
+      console.log(`${LOG_PREFIX} Expand: no toggle button found for post #${postNumber}`);
+      return false;
+    }
+
+    console.log(`${LOG_PREFIX} Expand: clicking toggle button for post #${postNumber}`);
+    const clicked = robustClick(toggleBtn);
+    if (!clicked) {
+      console.log(`${LOG_PREFIX} Expand: failed to click toggle button for post #${postNumber}`);
+      return false;
+    }
+
+    // Wait for section.embedded-posts to appear
+    return new Promise((resolve) => {
+      let resolved = false;
+      const timeoutId = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          observer.disconnect();
+          console.log(`${LOG_PREFIX} Expand: timeout waiting for section to appear for post #${postNumber}`);
+          resolve(false);
+        }
+      }, timeoutMs);
+
+      const observer = new MutationObserver(() => {
+        const section = ownerPostElement.querySelector("section.embedded-posts");
+        if (section && !resolved) {
+          resolved = true;
+          clearTimeout(timeoutId);
+          observer.disconnect();
+          console.log(`${LOG_PREFIX} Expand: section appeared for post #${postNumber}`);
+          resolve(true);
+        }
+      });
+
+      observer.observe(ownerPostElement, {
+        childList: true,
+        subtree: true
+      });
+    });
+  }
+
+  /**
+   * Load all embedded replies by clicking "load more" until no button remains
+   * @param {HTMLElement} ownerPostElement - The owner post article element
+   * @param {Object} options - Configuration options
+   * @param {number} options.maxClicks - Maximum number of "load more" clicks (default: 20)
+   * @param {number} options.timeoutMs - Maximum total time for loading (default: 10000ms)
+   * @returns {Promise<boolean>} - True if all replies loaded, false if timed out
+   */
+  async function loadAllEmbeddedReplies(ownerPostElement, { maxClicks = 20, timeoutMs = 10000 } = {}) {
+    if (!ownerPostElement) {
+      console.log(`${LOG_PREFIX} LoadAll: no owner post element provided`);
+      return false;
+    }
+
+    const postNumber = ownerPostElement.dataset?.postNumber;
+    const section = ownerPostElement.querySelector("section.embedded-posts");
+
+    if (!section) {
+      console.log(`${LOG_PREFIX} LoadAll: no embedded section found for post #${postNumber}`);
+      return false;
+    }
+
+    console.log(`${LOG_PREFIX} LoadAll: starting to load all replies for post #${postNumber}`);
+
+    const startTime = Date.now();
+    let clickCount = 0;
+
+    while (clickCount < maxClicks) {
+      // Check timeout
+      if (Date.now() - startTime > timeoutMs) {
+        console.log(`${LOG_PREFIX} LoadAll: timeout after ${clickCount} clicks for post #${postNumber}`);
+        return false;
+      }
+
+      // Find load more button
+      const loadMoreBtn = section.querySelector(".load-more-replies");
+      if (!loadMoreBtn) {
+        console.log(`${LOG_PREFIX} LoadAll: no more load-more button, all replies loaded for post #${postNumber} (${clickCount} clicks)`);
+        return true;
+      }
+
+      // Check if button is disabled/loading
+      if (loadMoreBtn.disabled || loadMoreBtn.classList.contains("loading")) {
+        console.log(`${LOG_PREFIX} LoadAll: button is disabled/loading, waiting...`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        continue;
+      }
+
+      console.log(`${LOG_PREFIX} LoadAll: clicking load-more button (click #${clickCount + 1}) for post #${postNumber}`);
+      const clicked = robustClick(loadMoreBtn);
+      if (!clicked) {
+        console.log(`${LOG_PREFIX} LoadAll: failed to click load-more button for post #${postNumber}`);
+        return false;
+      }
+
+      clickCount++;
+
+      // Wait for DOM to update
+      await new Promise((resolve) => {
+        const observer = new MutationObserver(() => {
+          observer.disconnect();
+          resolve();
+        });
+        observer.observe(section, { childList: true, subtree: true });
+
+        // Fallback timeout in case no mutation occurs
+        setTimeout(() => {
+          observer.disconnect();
+          resolve();
+        }, 1000);
+      });
+
+      // Small delay between clicks
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
+    console.log(`${LOG_PREFIX} LoadAll: reached max clicks (${maxClicks}) for post #${postNumber}`);
+    return false;
+  }
+
+  /**
+   * Clear collapsed section expansion state
+   */
+  function finalizeCollapsedFlow() {
+    console.log(`${LOG_PREFIX} Finalize: clearing collapsed expansion state`);
+    replyToCollapsedSection = false;
+    replyOwnerPostNumberForExpand = null;
+    expandOrchestratorActive = false;
+  }
+
 
 
   /**
@@ -774,6 +940,23 @@ export default apiInitializer("1.14.0", (api) => {
         e.preventDefault();
         e.stopPropagation();
 
+        // Detect if embedded section is collapsed
+        const section = postElement?.querySelector("section.embedded-posts");
+        const hasToggleBtn = postElement?.querySelector(
+          ".post-controls .show-replies, .show-replies, .post-action-menu__show-replies"
+        );
+        const isCollapsed = !section || !!hasToggleBtn;
+
+        if (isCollapsed) {
+          console.log(`${LOG_PREFIX} Detected collapsed embedded section for post #${postNumber}`);
+          replyToCollapsedSection = true;
+          replyOwnerPostNumberForExpand = postNumber;
+        } else {
+          console.log(`${LOG_PREFIX} Embedded section is expanded for post #${postNumber}`);
+          replyToCollapsedSection = false;
+          replyOwnerPostNumberForExpand = null;
+        }
+
         // Set suppression flag for post-creation handling
         suppressStandardReplyScroll = true;
         suppressedReplyPostNumber = postNumber;
@@ -803,6 +986,12 @@ export default apiInitializer("1.14.0", (api) => {
       observer.disconnect();
     });
     activeObservers.clear();
+
+    // Clear collapsed section expansion state on navigation
+    if (replyToCollapsedSection || replyOwnerPostNumberForExpand || expandOrchestratorActive) {
+      console.log(`${LOG_PREFIX} onPageChange: clearing stale collapsed expansion state`);
+      finalizeCollapsedFlow();
+    }
 
     schedule("afterRender", () => {
       // Check if we're in owner comment mode (filtered view)
@@ -1006,6 +1195,92 @@ export default apiInitializer("1.14.0", (api) => {
         }
         console.log(`${LOG_PREFIX} AutoRefresh: targeting owner post #${ownerPostElement.dataset?.postNumber || ownerPostElement.id || "(unknown)"} for refresh`);
 
+        // Check if we need to handle collapsed section expansion
+        const ownerPostNumber = Number(ownerPostElement.dataset?.postNumber);
+        const needsExpansion = replyToCollapsedSection && replyOwnerPostNumberForExpand === ownerPostNumber;
+
+        if (needsExpansion) {
+          console.log(`${LOG_PREFIX} AutoRefresh: handling collapsed section for owner post #${ownerPostNumber}`);
+
+          // Prevent duplicate orchestration
+          if (expandOrchestratorActive) {
+            console.log(`${LOG_PREFIX} AutoRefresh: expansion already in progress, skipping`);
+            return;
+          }
+          expandOrchestratorActive = true;
+
+          // Orchestrate: expand → load all → scroll → hide duplicate
+          schedule("afterRender", async () => {
+            try {
+              // Step 1: Expand the collapsed section
+              console.log(`${LOG_PREFIX} AutoRefresh: Step 1 - Expanding collapsed section for post #${ownerPostNumber}`);
+              const expanded = await expandEmbeddedReplies(ownerPostElement, { timeoutMs: 5000 });
+
+              if (!expanded) {
+                console.log(`${LOG_PREFIX} AutoRefresh: expansion failed for post #${ownerPostNumber}, attempting best-effort`);
+                // Hide duplicate anyway
+                if (lastCreatedPost?.postNumber || lastCreatedPost?.postId) {
+                  hideMainStreamDuplicateInOwnerMode(lastCreatedPost.postNumber, lastCreatedPost.postId);
+                }
+                finalizeCollapsedFlow();
+                return;
+              }
+
+              // Step 2: Load all replies
+              console.log(`${LOG_PREFIX} AutoRefresh: Step 2 - Loading all replies for post #${ownerPostNumber}`);
+              const allLoaded = await loadAllEmbeddedReplies(ownerPostElement, { maxClicks: 20, timeoutMs: 10000 });
+
+              if (!allLoaded) {
+                console.log(`${LOG_PREFIX} AutoRefresh: loading all replies timed out or reached max clicks for post #${ownerPostNumber}`);
+                // Continue anyway - the new post might already be visible
+              }
+
+              // Step 3: Scroll to new reply
+              const section = ownerPostElement.querySelector("section.embedded-posts");
+              if (section && lastCreatedPost) {
+                console.log(`${LOG_PREFIX} AutoRefresh: Step 3 - Attempting to scroll to new post #${lastCreatedPost.postNumber}`);
+                const scrolled = tryScrollToNewReply(section);
+
+                if (!scrolled) {
+                  console.log(`${LOG_PREFIX} AutoRefresh: immediate scroll failed, setting up observer`);
+                  const scrollObserver = new MutationObserver(() => {
+                    if (tryScrollToNewReply(section)) {
+                      console.log(`${LOG_PREFIX} AutoRefresh: observer successfully scrolled to new post`);
+                      scrollObserver.disconnect();
+                    }
+                  });
+
+                  scrollObserver.observe(section, {
+                    childList: true,
+                    subtree: true
+                  });
+
+                  // Timeout for observer
+                  setTimeout(() => {
+                    console.log(`${LOG_PREFIX} AutoRefresh: scroll observer timeout`);
+                    scrollObserver.disconnect();
+                    lastCreatedPost = null;
+                  }, 10000);
+                }
+              }
+
+              // Step 4: Hide duplicate in main stream
+              if (lastCreatedPost?.postNumber || lastCreatedPost?.postId) {
+                hideMainStreamDuplicateInOwnerMode(lastCreatedPost.postNumber, lastCreatedPost.postId);
+              }
+
+              // Clear collapsed flow state
+              finalizeCollapsedFlow();
+            } catch (err) {
+              console.error(`${LOG_PREFIX} AutoRefresh: error in collapsed flow orchestration`, err);
+              finalizeCollapsedFlow();
+            }
+          });
+
+          return; // Exit early - collapsed flow is handled above
+        }
+
+        // Normal flow (expanded section) - existing logic continues below
         // Wait for DOM to update, then trigger "load more replies"
         schedule("afterRender", () => {
           // Try to find the "load more replies" button in the owner's post
