@@ -211,11 +211,26 @@ export default apiInitializer("1.15.0", (api) => {
 
       log.info("Starting post classification", { topicOwnerId });
 
-      // Process all visible posts
-      processVisiblePosts(topic, topicOwnerId);
+      // Process visible posts with a small delay to ensure DOM is ready
+      // Discourse's post rendering can happen after afterRender in some cases
+      const processWithRetry = (attempt = 1, maxAttempts = 3) => {
+        const postCount = document.querySelectorAll("article.topic-post").length;
 
-      // Set up observer for newly rendered posts
-      observeStreamForNewPosts(topic, topicOwnerId);
+        if (postCount > 0) {
+          log.debug("Posts found in DOM", { count: postCount, attempt });
+          processVisiblePosts(topic, topicOwnerId);
+          observeStreamForNewPosts(topic, topicOwnerId);
+        } else if (attempt < maxAttempts) {
+          log.debug("No posts found yet, retrying", { attempt, maxAttempts });
+          setTimeout(() => processWithRetry(attempt + 1, maxAttempts), 100);
+        } else {
+          log.warn("No posts found after retries", { maxAttempts });
+          // Still set up observer in case posts load later
+          observeStreamForNewPosts(topic, topicOwnerId);
+        }
+      };
+
+      processWithRetry();
     });
   });
 });
