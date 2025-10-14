@@ -9,6 +9,7 @@ en:
       enable_owner_reply_filter: "Enable experimental filter to hide topic owner's replies to other users (keeps top-level posts and self-replies visible). Uses the same 'Owner comment categories' setting. Theme-only prototype; timeline/anchors may misalign. For production, use a server-side plugin."
       show_owner_reply_filter_notice: "Show a notice banner when the owner reply filter is active"
       debug_owner_reply_filter: "Enable debug logging for the owner reply filter feature"
+      auto_owner_reply_filter_in_owner_view: "Automatically activate owner reply filter when owner-only view (username_filters) is active in allowed categories"
       debug_logging_enabled: "Enable verbose console logging for debugging theme component behavior. Warning: This will generate significant console output. Only enable when troubleshooting issues. Changes take effect on next page load."
   js:
     owner_comments:

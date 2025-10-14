@@ -14,10 +14,11 @@
 
 **File**: `settings.yml`
 
-Added 3 new settings:
+Added 4 new settings:
 - `enable_owner_reply_filter` (bool, default: false) - Master toggle
 - `show_owner_reply_filter_notice` (bool, default: true) - Show notice banner
 - `debug_owner_reply_filter` (bool, default: false) - Debug logging
+- `auto_owner_reply_filter_in_owner_view` (bool, default: true) - Auto-activate filter when owner-only view (username_filters) is active
 
 **Note**: Uses existing `owner_comment_categories` setting for category allowlist (shared with main owner filter feature)
 

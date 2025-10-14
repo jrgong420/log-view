@@ -28,6 +28,7 @@ When activated (via `?owner_reply_filter=true` URL parameter):
    - Uses existing `owner_comment_categories` setting for category allowlist
    - `show_owner_reply_filter_notice` - Show/hide notice banner
    - `debug_owner_reply_filter` - Debug logging
+   - `auto_owner_reply_filter_in_owner_view` - Auto-activate when `username_filters` is present (default: true)
 
 2. **Translations** (`locales/en.yml`):
    - Notice title, text, and button labels
@@ -63,10 +64,10 @@ When activated (via `?owner_reply_filter=true` URL parameter):
 3. **Router logic**:
    - Checks URL for `owner_reply_filter=true` parameter
    - Validates category allowlist (uses `owner_comment_categories` setting)
-   - Skips if `username_filters` is present (avoid double-filtering)
+   - Auto-activates when `username_filters` is present if setting enabled
    - Adds/removes body class
    - Injects notice banner with toggle button
-   - Implements redirect-loop guards
+   - Implements redirect-loop guards and per-topic suppression when auto-activated
 
 ## Known Limitations
 
@@ -163,9 +164,9 @@ Post 1 (owner, top-level) ✓ visible
 ## Interaction with Existing Features
 
 ### username_filters (Core Discourse)
-- **Behavior**: Our filter is **skipped** when `username_filters` is present
-- **Reason**: Avoid double-filtering and compounding timeline issues
-- **User impact**: Toggle button should be hidden/disabled when `username_filters` is active
+- **Behavior**: Our filter can auto-activate when `username_filters` is present (if setting enabled)
+- **Reason**: Provide an owner-only view that shows only top-level and self-replies by the owner
+- **User impact**: Toggle button will disable the filter for the current topic view without navigating
 
 ### Owner Comment Categories (This Theme)
 - **Behavior**: Independent features; both can be active

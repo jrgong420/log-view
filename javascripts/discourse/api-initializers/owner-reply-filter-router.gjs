@@ -20,10 +20,9 @@ import { i18n } from "discourse-i18n";
  */
 
 export default apiInitializer("1.34.0", (api) => {
-  const settings = api.container.lookup("service:site-settings");
   const currentUser = api.getCurrentUser();
-  
-  // Early exit if feature is disabled
+
+  // Early exit if feature is disabled (theme setting)
   if (!settings.enable_owner_reply_filter) {
     return;
   }
@@ -39,6 +38,9 @@ export default apiInitializer("1.34.0", (api) => {
   // Module-scoped state for one-shot suppression
   let suppressNextNavigation = false;
   let suppressedTopicId = null;
+
+  // Module-scoped set to suppress auto-activated filter per topic (no navigation)
+  const suppressedTopics = new Set();
 
   /**
    * Check if current topic is in allowed categories
@@ -65,17 +67,17 @@ export default apiInitializer("1.34.0", (api) => {
    * Check if filter should be active
    */
   function shouldActivateFilter(url, topic) {
-    // Must have the query param
     const urlObj = new URL(url, window.location.origin);
     const hasFilterParam = urlObj.searchParams.get("owner_reply_filter") === "true";
-    
-    if (!hasFilterParam) {
-      return false;
-    }
+    const hasUsernameFilters = !!urlObj.searchParams.get("username_filters");
 
-    // Skip if username_filters is present (avoid double-filtering)
-    if (urlObj.searchParams.get("username_filters")) {
-      debugLog("Skipping: username_filters is present");
+    // Activation sources:
+    // 1) Explicit param owner_reply_filter=true
+    // 2) Owner-only view (username_filters present) AND auto-activate setting enabled
+    const autoActivate = settings.auto_owner_reply_filter_in_owner_view === true || settings.auto_owner_reply_filter_in_owner_view === "true";
+    const activationRequested = hasFilterParam || (hasUsernameFilters && autoActivate);
+
+    if (!activationRequested) {
       return false;
     }
 
@@ -164,25 +166,41 @@ export default apiInitializer("1.34.0", (api) => {
     e.preventDefault();
     e.stopPropagation();
 
-    const router = api.container.lookup("service:router");
     const topic = api.container.lookup("controller:topic")?.model;
-    
     if (!topic) {
       debugLog("Toggle clicked but no topic model available");
       return;
     }
 
-    // Set suppression flag
-    suppressNextNavigation = true;
-    suppressedTopicId = topic.id;
-    debugLog(`Toggle clicked, suppressing next navigation for topic ${topic.id}`);
-
-    // Remove filter param and navigate
     const currentUrl = new URL(window.location.href);
-    currentUrl.searchParams.delete("owner_reply_filter");
-    
-    debugLog("Navigating to:", currentUrl.toString());
-    window.location.replace(currentUrl.toString());
+    const hasOwnerParam = currentUrl.searchParams.get("owner_reply_filter") === "true";
+    const hasUsernameFilters = !!currentUrl.searchParams.get("username_filters");
+    const autoActivate = settings.auto_owner_reply_filter_in_owner_view === true || settings.auto_owner_reply_filter_in_owner_view === "true";
+
+    if (hasOwnerParam) {
+      // Existing behavior: remove param and navigate
+      suppressNextNavigation = true;
+      suppressedTopicId = topic.id;
+      debugLog(`Toggle clicked: removing owner_reply_filter param, suppressing next nav for topic ${topic.id}`);
+      currentUrl.searchParams.delete("owner_reply_filter");
+      debugLog("Navigating to:", currentUrl.toString());
+      window.location.replace(currentUrl.toString());
+      return;
+    }
+
+    if (hasUsernameFilters && autoActivate) {
+      // Auto-activated case: suppress for this topic without navigation
+      suppressedTopics.add(topic.id);
+      debugLog(`Toggle clicked: suppressing auto-activated filter for topic ${topic.id}`);
+      deactivateFilter();
+      removeNotice();
+      return;
+    }
+
+    // Fallback: just deactivate locally (no param to remove)
+    debugLog("Toggle clicked: deactivating locally (no owner_reply_filter param and no auto-activation)");
+    deactivateFilter();
+    removeNotice();
   }
 
   /**
@@ -229,9 +247,17 @@ export default apiInitializer("1.34.0", (api) => {
         return;
       }
 
-      // Guard 3: Check if filter should be active
+      // Guard 3: Check per-topic suppression (user turned it off in this view)
+      if (suppressedTopics.has(topic.id)) {
+        debugLog(`Filter suppressed for topic ${topic.id} by user`);
+        deactivateFilter();
+        removeNotice();
+        return;
+      }
+
+      // Guard 4: Check if filter should be active (param or auto in owner-only view)
       const shouldActivate = shouldActivateFilter(url, topic);
-      
+
       if (shouldActivate) {
         debugLog("Activating filter");
         activateFilter();

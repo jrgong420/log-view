@@ -17,9 +17,7 @@ import { apiInitializer } from "discourse/lib/api";
  */
 
 export default apiInitializer("1.34.0", (api) => {
-  const settings = api.container.lookup("service:site-settings");
-  
-  // Early exit if feature is disabled
+  // Early exit if feature is disabled (theme setting)
   if (!settings.enable_owner_reply_filter) {
     return;
   }

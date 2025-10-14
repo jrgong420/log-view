@@ -62,6 +62,13 @@ debug_owner_reply_filter:
   default: false
   description: "Enable debug logging for the owner reply filter feature"
 
+# Auto-activate owner reply filter when owner-only view is active
+auto_owner_reply_filter_in_owner_view:
+  type: bool
+  default: true
+  description: "Automatically activate owner reply filter when owner-only view (username_filters) is active in allowed categories"
+
+
 
 # Debugging and logging
 
