@@ -13,7 +13,7 @@ import { parseCategoryIds } from "../lib/group-access-utils";
  * shortcuts (Shift+R) or API calls.
  */
 
-const DEBUG = true; // Set to false to disable debug logging
+const DEBUG = false; // Reduced logging by default; set to true for troubleshooting
 
 function debugLog(...args) {
   if (DEBUG) {

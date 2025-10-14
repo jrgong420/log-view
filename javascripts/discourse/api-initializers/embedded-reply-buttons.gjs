@@ -1217,11 +1217,24 @@ export default apiInitializer("1.14.0", (api) => {
         logDebug(`AutoRefresh: targeting owner post #${ownerPostElement.dataset?.postNumber || ownerPostElement.id || "(unknown)"} for refresh`);
 
         // Decide expansion based on current DOM state (more robust than stored flags)
-        const ownerPostNumber = Number(ownerPostElement.dataset?.postNumber);
-        const sectionNow = ownerPostElement.querySelector("section.embedded-posts");
-        const hasToggleNow = ownerPostElement.querySelector(
+        let ownerPostNumber = Number(ownerPostElement?.dataset?.postNumber);
+        // Fallbacks if dataset is missing
+        let toggleBtnForInference = ownerPostElement.querySelector(
           ".post-action-menu__show-replies, .show-replies, .post-action-menu__show-replies"
         );
+        if (!ownerPostNumber) {
+          const ac = toggleBtnForInference?.getAttribute("aria-controls") || "";
+          const m = ac.match(/--(\d+)$/);
+          if (m) {
+            ownerPostNumber = Number(m[1]);
+          }
+        }
+        if (!ownerPostNumber) {
+          ownerPostNumber = Number(lastReplyContext?.ownerPostNumber) || Number(lastReplyContext?.parentPostNumber) || null;
+        }
+
+        const sectionNow = ownerPostElement.querySelector("section.embedded-posts");
+        const hasToggleNow = toggleBtnForInference;
         const collapsedNow = !sectionNow || !!hasToggleNow;
 
         if (collapsedNow) {

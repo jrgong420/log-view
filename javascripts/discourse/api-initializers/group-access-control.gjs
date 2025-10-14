@@ -14,7 +14,7 @@ import { apiInitializer } from "discourse/lib/api";
  * - If one or more groups are selected: enable only for logged-in users who are members of any selected groups
  */
 export default apiInitializer("1.15.0", (api) => {
-  const DEBUG = true; // Set to false to disable debug logging
+  const DEBUG = false; // Reduced logging by default; set to true for troubleshooting
 
   function debugLog(...args) {
     if (DEBUG) {
