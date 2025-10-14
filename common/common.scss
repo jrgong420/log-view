@@ -67,60 +67,189 @@ body:not(.theme-component-access-granted) {
 }
 
 
+/* ===== Reply Button Icon Color Override ===== */
+
+/* Override the default grey color for reply button icons */
+nav.post-controls button.reply .d-icon {
+  color: var(--d-button-primary-text-color)!important;
+}
+
+
+/* ===== Post Action Menu — Visual Consistency ===== */
+
+/*
+ * Unified styling for Show Replies and Reply buttons in post action menu
+ * - Show Replies: consistent appearance in both collapsed/expanded states
+ * - Reply: styled as primary action button to stand out
+ * - Both buttons have proper hover, active, and focus states for accessibility
+ */
+
+/* Desktop — Show Replies Button (collapsed state) */
+@media screen and (min-width: 769px) {
+  button.post-action-menu__show-replies[aria-expanded="false"] {
+    color: var(--primary-900);
+    background: var(--primary-100);
+    transition: all 0.2s ease;
+
+    .d-icon {
+      color: currentColor;
+    }
+
+    &:hover {
+      color: var(--d-post-control-text-color--hover);
+      background: var(--d-post-control-background--hover);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--primary-300);
+      outline-offset: 2px;
+    }
+  }
+
+  /* Expanded state keeps default Discourse styling */
+  button.post-action-menu__show-replies[aria-expanded="true"] {
+    .d-icon {
+      color: currentColor;
+    }
+  }
+}
+
+/* Mobile — Show Replies Button (collapsed state) */
+@media screen and (max-width: 768px) {
+  button.post-action-menu__show-replies[aria-expanded="false"] {
+    color: var(--primary-900);
+    background: var(--primary-100);
+    transition: all 0.2s ease;
+
+    .d-icon {
+      color: currentColor;
+    }
+
+    &:hover {
+      color: var(--d-post-control-text-color--hover);
+      background: var(--d-post-control-background--hover);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--primary-300);
+      outline-offset: 2px;
+    }
+  }
+
+  /* Expanded state keeps default Discourse styling */
+  button.post-action-menu__show-replies[aria-expanded="true"] {
+    .d-icon {
+      color: currentColor;
+    }
+  }
+}
+
+/* Reply Button — Primary Action Styling (Desktop & Mobile) */
+button.post-action-menu__reply {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  font-weight: normal !important;
+  color: var(--d-button-primary-text-color) !important;
+  background-color: var(--d-button-primary-bg-color) !important;
+  background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)) !important;
+  border-radius: var(--d-button-border-radius) !important;
+  transition: var(--d-button-transition) !important;
+  cursor: pointer !important;
+  font-size: var(--font-0) !important;
+  line-height: normal !important;
+  box-sizing: border-box !important;
+  padding: 0.5em 0.65em !important;
+  border: var(--d-button-border) !important;
+  opacity: 1 !important;
+
+  .d-icon {
+    color: var(--d-button-primary-text-color) !important;
+  }
+
+  &:hover {
+    background-color: var(--d-button-primary-bg-color--hover) !important;
+    color: var(--d-button-primary-text-color--hover) !important;
+
+    .d-icon {
+      color: var(--d-button-primary-text-color--hover) !important;
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--tertiary-low) !important;
+    outline-offset: 2px !important;
+  }
+}
+
+
 /* ===== Hide Reply Buttons for Non-Owners ===== */
 
 /*
- * IMPORTANT: All rules are scoped under body.hide-reply-buttons-non-owners
- * This body class is ONLY added in configured categories for non-owner users
- * The JavaScript in hide-reply-buttons.gjs manages this class based on:
- *   - Setting enabled
- *   - Topic in configured category
- *   - Current user is NOT the topic owner
+ * IMPORTANT: This feature has two parts:
+ *
+ * 1. Post-level hiding: Targets posts classified as non-owner-post
+ *    The JavaScript in hide-reply-buttons.gjs adds this class to posts based on:
+ *      - Setting enabled (hide_reply_buttons_for_non_owners)
+ *      - Topic in configured category (owner_comment_categories)
+ *      - Post author is NOT the topic owner
+ *
+ * 2. Top-level hiding: Targets topic-level reply buttons when viewer is not owner
+ *    The JavaScript adds body class hide-reply-buttons-non-owners when:
+ *      - Setting enabled (hide_reply_buttons_for_non_owners)
+ *      - Topic in configured category (owner_comment_categories)
+ *      - Viewer is anonymous OR viewer is NOT the topic owner
+ *
+ * Both apply in filtered and regular topic views.
+ * Does not check Allowed groups setting.
  */
 
-body.hide-reply-buttons-non-owners {
-  /* Hide top-level reply buttons (timeline and topic footer) */
-  .timeline-footer-controls .create,
-  .timeline-footer-controls .reply-to-post,
-  .topic-footer-main-buttons .create,
-  .topic-footer-main-buttons .reply-to-post {
-    display: none !important;
-  }
-
-  /* Style post-level reply buttons as primary actions */
-
-  /* Uses more specific selectors to override core Discourse styles */
+/* Hide post-level reply buttons on posts authored by non-owners */
+article.topic-post.non-owner-post {
   nav.post-controls .actions button.create,
   nav.post-controls .actions button.reply,
   nav.post-controls .actions button.reply-to-post,
   .topic-body .actions button.create,
   .topic-body .actions button.reply,
   .topic-body .actions button.reply-to-post {
-    background-color: var(--tertiary) !important;
-    color: var(--secondary) !important;
-    border-color: transparent !important;
-    opacity: 1 !important;
-    transition: background 0.25s, opacity 0.25s !important;
+    display: none !important;
+  }
+}
 
-    &:hover {
-      background-color: var(--tertiary-hover, var(--tertiary)) !important;
-      color: var(--secondary) !important;
-      opacity: 1 !important;
-      filter: brightness(0.9);
-    }
+/* Hide top-level reply buttons when viewer is not the topic owner */
+body.hide-reply-buttons-non-owners {
+  /* Timeline footer controls (desktop) */
+  .timeline-footer-controls .create,
+  .timeline-footer-controls .reply-to-post,
+  .timeline-footer-controls button.create,
+  .timeline-footer-controls button.reply-to-post,
+  .timeline-footer-controls button[aria-label*="Reply"],
+  .timeline-footer-controls button[aria-label*="reply"],
 
-    &:active {
-      background-color: var(--tertiary-high, var(--tertiary)) !important;
-      color: var(--secondary) !important;
-      filter: brightness(0.85);
-    }
+  /* Topic footer main buttons */
+  .topic-footer-main-buttons .create,
+  .topic-footer-main-buttons .reply-to-post,
+  .topic-footer-main-buttons button.create,
+  .topic-footer-main-buttons button.reply-to-post,
+  .topic-footer-main-buttons button[aria-label*="Reply"],
+  .topic-footer-main-buttons button[aria-label*="reply"],
 
-    &:focus {
-      background-color: var(--tertiary) !important;
-      color: var(--secondary) !important;
-      outline: 2px solid var(--tertiary-low);
-      outline-offset: 2px;
-    }
+  /* Legacy topic footer buttons outlet */
+  .topic-footer-buttons .create,
+  .topic-footer-buttons .reply-to-post,
+  .topic-footer-buttons button.create,
+  .topic-footer-buttons button.reply-to-post,
+
+  /* Topic footer buttons (any container) */
+  #topic-footer-buttons .create,
+  #topic-footer-buttons .reply-to-post,
+  #topic-footer-buttons button.create,
+  #topic-footer-buttons button.reply-to-post,
+
+  /* Embedded reply buttons (section-level) */
+  .embedded-reply-button {
+    display: none !important;
   }
 }
 
@@ -128,12 +257,21 @@ body.hide-reply-buttons-non-owners {
 /* ===== Embedded Reply Buttons ===== */
 
 /*
- * Styling for reply buttons injected into embedded posts
- * These appear in section.embedded-posts when in filtered view
+ * Styling for section-level reply button in embedded posts
+ * This button appears once per section.embedded-posts, positioned next to the collapse button
  */
 
+/* Container for the reply and collapse buttons */
+.embedded-posts-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.5rem;
+}
+
 .embedded-reply-button {
-  margin-left: 0.5rem;
   padding: 0.25rem 0.75rem;
   font-size: var(--font-down-1);
   background-color: var(--tertiary);
@@ -142,6 +280,10 @@ body.hide-reply-buttons-non-owners {
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
 
   &:hover {
     background-color: var(--tertiary-hover, var(--tertiary));
@@ -162,16 +304,138 @@ body.hide-reply-buttons-non-owners {
   }
 }
 
-/* Position the button nicely within embedded posts */
-section.embedded-posts {
-  .embedded-post {
-    position: relative;
-
-    .post-info,
-    .post-actions {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
+/* Desktop-specific positioning adjustments */
+@media screen and (min-width: 769px) {
+  section.embedded-posts > .embedded-posts-controls .embedded-reply-button {
+    position: absolute;
+    left: 64px;
+    bottom: 50%;
   }
 }
+
+/* Ensure the section has proper layout */
+section.embedded-posts {
+  /* Ensure controls container is properly positioned */
+  > .embedded-posts-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  /* Legacy support for other footer containers */
+  > footer,
+  > .embedded-posts-footer,
+  > .embedded-posts__footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+}
+
+/* ===== Load More Button Styling ===== */
+
+/* Desktop view - Load More button */
+@media (min-width: 40rem) {
+  .embedded-posts .load-more-replies {
+    font-size: var(--font-down-1);
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, -130%);
+    padding: 0.35em 0.5em;
+  }
+}
+
+/* Tablet view - Load More button for bottom embedded posts */
+@media (min-width: 40rem) {
+  .embedded-posts.bottom .load-more-replies {
+    font-size: var(--font-down-1);
+    position: absolute;
+    left: 55%;
+    transform: translate(-50%, -150%);
+    padding: var(--space-1) var(--space-2);
+  }
+}
+
+/* Smartphone view - Load More button */
+@media (max-width: 40rem) {
+  .embedded-posts .load-more-replies {
+    font-size: var(--font-down-1);
+    position: absolute;
+    left: 50%;
+    transform: translate(1%, -230%);
+    padding: 0.35em 0.5em;
+  }
+}
+
+
+/* ===== Mobile-specific adjustments ===== */
+@media screen and (max-width: 768px) {
+  /* Ensure controls stay on one line and left-aligned on small screens */
+  section.embedded-posts > .embedded-posts-controls {
+    display: flex;
+    flex-direction: row; /* keep buttons in horizontal layout */
+    flex-wrap: nowrap;   /* prevent wrapping to the next line */
+    justify-content: flex-start; /* left-align the button group */
+    align-items: center; /* vertical centering */
+    gap: 0.5rem;         /* consistent spacing between buttons */
+    padding: 0.25rem 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  /* Make sure both buttons behave as non-wrapping inline items */
+  section.embedded-posts > .embedded-posts-controls .embedded-reply-button,
+  section.embedded-posts > .embedded-posts-controls .widget-button.collapse-up {
+    flex: 0 0 auto;
+  }
+
+  /* Ensure correct horizontal order: Collapse (left) then Reply (right) */
+  section.embedded-posts > .embedded-posts-controls .widget-button.collapse-up {
+    order: 1;
+  }
+  section.embedded-posts > .embedded-posts-controls .embedded-reply-button {
+    order: 2;
+    position: relative;
+    left: 10%;
+    bottom: 9px;
+  }
+
+  /* Normalize the collapse button box so it aligns with the Reply button */
+  section.embedded-posts > .embedded-posts-controls .widget-button.collapse-up {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+  }
+}
+
+
+/* ===== Auto-scroll highlight effect ===== */
+
+/*
+ * Temporary highlight for newly created embedded posts after auto-scroll
+ * Applied for 2 seconds to provide visual feedback
+ */
+
+@keyframes highlightFadeIn {
+  0% {
+    background-color: var(--tertiary-very-low);
+    box-shadow: 0 0 0 0 var(--tertiary-low);
+  }
+  50% {
+    background-color: var(--tertiary-low);
+    box-shadow: 0 0 0 4px var(--tertiary-very-low);
+  }
+  100% {
+    background-color: var(--tertiary-very-low);
+    box-shadow: 0 0 0 0 var(--tertiary-low);
+  }
+}
+
+.highlighted-reply {
+  animation: highlightFadeIn 2s ease-in-out;
+  border-left: 3px solid var(--tertiary) !important;
+  transition: border-left 0.3s ease;
+}
+

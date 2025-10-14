@@ -37,17 +37,22 @@ Enable or disable the toggle button that allows users to switch between filtered
 **Type**: Boolean
 **Default**: false
 
-When enabled, hides top-level reply buttons (timeline and topic footer) from all users except the topic owner in categories configured for owner comments. Post-level reply buttons (on individual posts) remain visible and are styled as primary actions.
+When enabled, hides reply buttons on posts authored by non-owners in categories configured for owner comments. This applies in **both filtered and regular topic views**.
+
+**Behavior**:
+- Posts authored by the topic owner: reply buttons remain visible
+- Posts authored by other users: reply buttons are hidden
+- Applies only in categories configured in "Owner Comment Categories"
+- Does not check the "Allowed Groups" setting (applies regardless of group membership)
 
 **Important limitations**:
 - This is a **UI-only restriction** and does not prevent replies via:
   - Keyboard shortcuts (Shift+R)
   - API calls
   - Browser console manipulation
-- Only applies in categories configured in "Owner Comment Categories"
 - For true access control, use Discourse's built-in category permissions
 
-**Use case**: Reduce visual clutter and gently encourage users to use post-level replies in journal-style topics, while still allowing flexibility for those who need it.
+**Use case**: In journal-style topics, encourage users to reply to the topic owner's posts while reducing clutter from reply buttons on other users' posts.
 
 #### Embedded Reply Buttons
 **Type**: Boolean (automatically enabled)
@@ -189,17 +194,32 @@ When testing group-based access control:
 
 ### Debug Logging
 
-The theme includes comprehensive debug logging for all features. To view logs:
+The theme includes a configurable logging system with different verbosity levels:
 
+**Default Mode (Production):**
+- Shows only important events, warnings, and errors (~35 messages per interaction)
+- Suitable for production use and general debugging
+
+**Debug Mode (Development):**
+- Shows verbose debugging information (~150 messages per interaction)
+- Useful for detailed troubleshooting and development
+
+**To enable debug mode:**
+1. Edit `javascripts/discourse/api-initializers/embedded-reply-buttons.gjs`
+2. Change `const DEBUG = false;` to `const DEBUG = true;`
+3. Save and refresh
+
+**Viewing logs:**
 1. Open your browser's developer console (F12)
 2. Look for messages prefixed with:
    - `[Embedded Reply Buttons]` - Embedded reply button injection and composer opening
    - `[Group Access Control]` - Group membership checks
    - `[Owner Comments]` - Owner filtering logic
    - `[Hide Reply Buttons]` - Reply button hiding decisions
-3. To disable debug logging, edit the initializer files and set `DEBUG = false`
 
 **Tip**: Filter console output by feature name (e.g., `[Embedded Reply Buttons]`) to focus on specific functionality.
+
+For detailed information about the logging system, see [docs/LOGGING_GUIDE.md](docs/LOGGING_GUIDE.md).
 
 ## License
 

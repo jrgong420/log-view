@@ -1,108 +1,300 @@
 import { schedule } from "@ember/runloop";
 import { apiInitializer } from "discourse/lib/api";
 import { parseCategoryIds } from "../lib/group-access-utils";
+import { createLogger } from "../lib/logger";
 
 /**
  * Hide Reply Buttons for Non-Owners
  *
- * When enabled, hides top-level reply buttons (timeline and topic footer) from
- * non-owner users in categories configured for owner comments. Post-level reply
- * buttons remain visible and are styled as primary actions.
+ * When enabled, hides reply buttons in two ways:
+ * 1. Post-level: Hides reply buttons on posts authored by non-owners
+ * 2. Top-level: Hides topic-level reply buttons (timeline footer, topic footer)
+ *    when the viewer is not the topic owner
+ *
+ * Applies in both filtered and regular topic views.
+ * Does not check Allowed groups setting.
  *
  * This is a UI-only restriction and does not prevent replies via keyboard
  * shortcuts (Shift+R) or API calls.
+ *
+ * Settings used:
+ * - hide_reply_buttons_for_non_owners: enable this feature
+ * - owner_comment_categories: list of category IDs
+ * - debug_logging_enabled: enable verbose console logging
  */
 
-const DEBUG = true; // Set to false to disable debug logging
+const log = createLogger("[Owner View] [Hide Reply Buttons]");
 
-function debugLog(...args) {
-  if (DEBUG) {
-    // eslint-disable-next-line no-console
-    console.log("[Hide Reply Buttons]", ...args);
+// Track active MutationObserver to clean up on route changes
+let streamObserver = null;
+
+/**
+ * Extract post number from a post element
+ */
+function extractPostNumberFromElement(el) {
+  if (!el) return null;
+
+  // Try data-post-number attribute
+  if (el.dataset?.postNumber) {
+    return Number(el.dataset.postNumber);
   }
+
+  // Try id attribute (e.g., "post_123")
+  const id = el.id || "";
+  const match = id.match(/^post[_-](\d+)$/i);
+  if (match) {
+    return Number(match[1]);
+  }
+
+  return null;
+}
+
+/**
+ * Classify a single post element as owner or non-owner
+ */
+function classifyPost(postElement, topic, topicOwnerId) {
+  // Skip if already classified
+  if (postElement.dataset.ownerMarked) {
+    return;
+  }
+
+  const postNumber = extractPostNumberFromElement(postElement);
+  if (!postNumber) {
+    log.warn("Could not extract post number from element", { postElement });
+    return;
+  }
+
+  // Find the post model in the topic's post stream
+  const post = topic.postStream?.posts?.find(p => p.post_number === postNumber);
+  if (!post) {
+    log.debug("Post not found in post stream", { postNumber });
+    return;
+  }
+
+  const postAuthorId = post.user_id;
+  const isOwnerPost = postAuthorId === topicOwnerId;
+
+  log.debug("Classifying post", {
+    postNumber,
+    postAuthorId,
+    topicOwnerId,
+    isOwnerPost
+  });
+
+  // Add classification class
+  if (isOwnerPost) {
+    postElement.classList.add("owner-post");
+    postElement.classList.remove("non-owner-post");
+  } else {
+    postElement.classList.add("non-owner-post");
+    postElement.classList.remove("owner-post");
+  }
+
+  // Mark as processed
+  postElement.dataset.ownerMarked = "1";
+}
+
+/**
+ * Process all visible posts in the stream
+ */
+function processVisiblePosts(topic, topicOwnerId) {
+  const postElements = document.querySelectorAll("article.topic-post");
+  log.info("Processing visible posts", { count: postElements.length });
+
+  postElements.forEach(postElement => {
+    classifyPost(postElement, topic, topicOwnerId);
+  });
+}
+
+/**
+ * Set up MutationObserver to classify newly rendered posts
+ */
+function observeStreamForNewPosts(topic, topicOwnerId) {
+  // Clean up existing observer
+  if (streamObserver) {
+    streamObserver.disconnect();
+    streamObserver = null;
+    log.debug("Disconnected previous MutationObserver");
+  }
+
+  const streamContainer = document.querySelector("#topic .post-stream, .post-stream");
+  if (!streamContainer) {
+    log.warn("Post stream container not found");
+    return;
+  }
+
+  streamObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.type === "childList") {
+        mutation.addedNodes.forEach(node => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            // Check if the added node is a post
+            if (node.matches && node.matches("article.topic-post")) {
+              log.debugThrottled("New post detected (direct)", { node });
+              classifyPost(node, topic, topicOwnerId);
+            }
+            // Check if the added node contains posts
+            else if (node.querySelectorAll) {
+              const posts = node.querySelectorAll("article.topic-post");
+              if (posts.length > 0) {
+                log.debugThrottled("New posts detected (nested)", { count: posts.length });
+                posts.forEach(post => {
+                  classifyPost(post, topic, topicOwnerId);
+                });
+              }
+            }
+          }
+        });
+      }
+    }
+  });
+
+  streamObserver.observe(streamContainer, {
+    childList: true,
+    subtree: true
+  });
+
+  log.info("MutationObserver set up for post stream");
 }
 
 export default apiInitializer("1.15.0", (api) => {
   api.onPageChange((url) => {
     schedule("afterRender", () => {
-      debugLog("Page changed to:", url);
-      debugLog("Body class before evaluation:", document.body.classList.contains("hide-reply-buttons-non-owners"));
+      log.debug("Page changed", { url });
+
+      // Clean up previous observer
+      if (streamObserver) {
+        streamObserver.disconnect();
+        streamObserver = null;
+        log.debug("Cleaned up previous observer");
+      }
 
       // Guard 1: Check if setting is enabled
       if (!settings.hide_reply_buttons_for_non_owners) {
+        log.debug("Setting disabled; removing body class and skipping");
         document.body.classList.remove("hide-reply-buttons-non-owners");
-        debugLog("Setting disabled; removing body class");
         return;
       }
 
-      debugLog("Setting enabled; evaluating conditions");
+      log.info("Hide reply buttons feature enabled; evaluating conditions");
 
       // Guard 2: Get topic data
       const topic = api.container.lookup("controller:topic")?.model;
       if (!topic) {
-        debugLog("No topic found; removing body class");
+        log.debug("No topic found; removing body class and skipping");
         document.body.classList.remove("hide-reply-buttons-non-owners");
         return;
       }
 
-      debugLog("Topic found:", { id: topic.id, category_id: topic.category_id });
+      log.debug("Topic found", {
+        topicId: topic.id,
+        categoryId: topic.category_id
+      });
 
       // Guard 3: Check if category is configured for owner comments
       const categoryId = topic.category_id;
       const enabledCategories = parseCategoryIds(settings.owner_comment_categories);
 
-      debugLog("Category check:", {
+      log.debug("Category check", {
         topicCategory: categoryId,
-        enabledCategories,
+        enabledCategories
       });
 
       if (!enabledCategories.includes(categoryId)) {
-        debugLog("Category not configured; removing body class");
+        log.debug("Category not configured; removing body class and skipping");
         document.body.classList.remove("hide-reply-buttons-non-owners");
         return;
       }
 
-      debugLog("Category is configured; checking ownership");
+      log.info("Category is configured; proceeding with post classification");
 
-      // Guard 4: Get current user and topic owner
-      const currentUser = api.getCurrentUser();
+      // Guard 4: Get topic owner ID
       const topicOwnerId = topic.details?.created_by?.id;
 
-      debugLog("User and owner IDs:", {
-        currentUserId: currentUser?.id,
-        topicOwnerId,
-      });
-
-      // Guard 5: Handle anonymous users or missing owner data
       if (!topicOwnerId) {
-        debugLog("No topic owner data; removing body class");
+        log.warn("No topic owner data available; removing body class and skipping");
         document.body.classList.remove("hide-reply-buttons-non-owners");
         return;
       }
 
-      if (!currentUser) {
-        debugLog("Anonymous user; hiding reply buttons");
-        document.body.classList.add("hide-reply-buttons-non-owners");
-        return;
-      }
+      log.info("Starting post classification", { topicOwnerId });
 
-      // Decision: Compare user ID with topic owner ID
-      const isOwner = currentUser.id === topicOwnerId;
+      // Determine if top-level reply buttons should be hidden
+      const currentUser = api.getCurrentUser();
 
-      debugLog("Ownership decision:", {
-        isOwner,
-        action: isOwner ? "SHOW buttons (remove class)" : "HIDE buttons (add class)",
+      // Normalize IDs to numbers for type-safe comparison
+      // This prevents bugs where currentUser.id (Number) !== topicOwnerId (String)
+      const currentUserId = currentUser?.id ? Number(currentUser.id) : null;
+      const normalizedTopicOwnerId = Number(topicOwnerId);
+
+      const isTopicOwner = currentUserId !== null && currentUserId === normalizedTopicOwnerId;
+
+      log.debug("Top-level button visibility decision", {
+        currentUserId,
+        currentUserIdType: typeof currentUser?.id,
+        topicOwnerId: normalizedTopicOwnerId,
+        topicOwnerIdType: typeof topicOwnerId,
+        isTopicOwner
       });
 
-      if (isOwner) {
+      // Show buttons if user is the topic owner, hide otherwise
+      if (isTopicOwner) {
         document.body.classList.remove("hide-reply-buttons-non-owners");
-        debugLog("Body class removed (owner)");
+        log.info("User is topic owner - showing top-level reply buttons");
       } else {
         document.body.classList.add("hide-reply-buttons-non-owners");
-        debugLog("Body class added (non-owner)");
+        log.info("User is not topic owner - hiding top-level reply buttons");
+
+        // Debug: Log what reply buttons are present in the DOM
+        schedule("afterRender", () => {
+          const replyButtons = {
+            timelineCreate: document.querySelectorAll(".timeline-footer-controls .create, .timeline-footer-controls button.create").length,
+            timelineReply: document.querySelectorAll(".timeline-footer-controls .reply-to-post, .timeline-footer-controls button.reply-to-post").length,
+            topicFooterCreate: document.querySelectorAll(".topic-footer-main-buttons .create, .topic-footer-main-buttons button.create").length,
+            topicFooterReply: document.querySelectorAll(".topic-footer-main-buttons .reply-to-post, .topic-footer-main-buttons button.reply-to-post").length,
+            embeddedReply: document.querySelectorAll(".embedded-reply-button").length,
+            allCreateButtons: document.querySelectorAll("button.create").length,
+            allReplyButtons: document.querySelectorAll("button.reply-to-post, button.reply").length
+          };
+
+          log.debug("Reply buttons in DOM after body class added", replyButtons);
+
+          // Log all reply-related buttons with their classes
+          const allButtons = document.querySelectorAll("button.create, button.reply-to-post, button.reply, .embedded-reply-button");
+          if (allButtons.length > 0) {
+            log.debug("All reply-related buttons found", {
+              count: allButtons.length,
+              buttons: Array.from(allButtons).map(btn => ({
+                classes: btn.className,
+                text: btn.textContent?.trim(),
+                parent: btn.parentElement?.className,
+                visible: window.getComputedStyle(btn).display !== "none"
+              }))
+            });
+          }
+        });
       }
 
-      debugLog("Body class after evaluation:", document.body.classList.contains("hide-reply-buttons-non-owners"));
+      // Process visible posts with a small delay to ensure DOM is ready
+      // Discourse's post rendering can happen after afterRender in some cases
+      const processWithRetry = (attempt = 1, maxAttempts = 3) => {
+        const postCount = document.querySelectorAll("article.topic-post").length;
+
+        if (postCount > 0) {
+          log.debug("Posts found in DOM", { count: postCount, attempt });
+          processVisiblePosts(topic, topicOwnerId);
+          observeStreamForNewPosts(topic, topicOwnerId);
+        } else if (attempt < maxAttempts) {
+          log.debug("No posts found yet, retrying", { attempt, maxAttempts });
+          setTimeout(() => processWithRetry(attempt + 1, maxAttempts), 100);
+        } else {
+          log.warn("No posts found after retries", { maxAttempts });
+          // Still set up observer in case posts load later
+          observeStreamForNewPosts(topic, topicOwnerId);
+        }
+      };
+
+      processWithRetry();
     });
   });
 });

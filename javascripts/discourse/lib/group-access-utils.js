@@ -1,16 +1,17 @@
 import { getOwner } from "@ember/owner";
+import { createLogger } from "./logger";
 
 /**
  * Shared utility for checking group-based access control and category settings.
  * Used by connectors to gate rendering via shouldRender.
+ *
+ * Settings used:
+ * - allowed_groups: list of group IDs (pipe-separated)
+ * - owner_comment_categories: list of category IDs (pipe-separated)
+ * - toggle_view_button_enabled: enable toggle button
+ * - debug_logging_enabled: enable verbose console logging
  */
-const DEBUG = true; // Set to false to disable debug logging
-function debugLog(...args) {
-  if (DEBUG) {
-    // eslint-disable-next-line no-console
-    console.log("[Group Access Control]", ...args);
-  }
-}
+const log = createLogger("[Owner View] [Group Access Utils]");
 
 /**
  * Parse category IDs from pipe-separated setting string.
@@ -40,7 +41,11 @@ export function isUserAllowedAccess(helper, fallbackContext = null) {
   // Robust resolution: in Discourse, current-user may be the user object itself
   // or expose the user via .user / .currentUser / .current
   const currentUser = cuService && (cuService.user || cuService.currentUser || cuService.current || cuService);
-  debugLog("Resolved currentUser:", currentUser ? { id: currentUser.id, username: currentUser.username } : null);
+
+  log.debug("Resolved currentUser", {
+    userId: currentUser?.id,
+    username: currentUser?.username
+  });
 
   // Get theme settings from the global settings object
   // Note: In connectors, settings is available globally (not window.settings)
@@ -53,20 +58,20 @@ export function isUserAllowedAccess(helper, fallbackContext = null) {
     .map((id) => parseInt(id.trim(), 10))
     .filter((id) => !isNaN(id));
 
-  debugLog("Allowed group IDs:", allowedGroupIds);
-  if (currentUser) {
-    debugLog("Current user groups raw:", currentUser.groups);
-  }
+  log.debug("Allowed groups", {
+    allowedGroupIds,
+    userGroups: currentUser?.groups
+  });
 
   // If no groups are configured, enable for all users (unrestricted)
   if (allowedGroupIds.length === 0) {
-    debugLog("No groups configured; enabling for all users (unrestricted access)");
+    log.info("No groups configured; enabling for all users (unrestricted access)");
     return true;
   }
 
   // Groups are configured: anonymous users are not members of any group
   if (!currentUser) {
-    debugLog("Anonymous user and groups are configured; denying access");
+    log.info("Anonymous user and groups are configured; denying access");
     return false;
   }
 
@@ -74,15 +79,34 @@ export function isUserAllowedAccess(helper, fallbackContext = null) {
   const userGroups = currentUser.groups || [];
   const userGroupIds = userGroups.map((g) => g.id);
 
-  debugLog("User group IDs:", userGroupIds);
-  debugLog("Comparison:", { allowedGroupIds, userGroupIds });
+  // Normalize both arrays to numbers for comparison
+  const normalizedAllowedIds = allowedGroupIds.map(id => Number(id));
+  const normalizedUserGroupIds = userGroupIds.map(id => Number(id));
 
-  const isMember = allowedGroupIds.some((allowedId) => userGroupIds.includes(allowedId));
-  debugLog(
-    `Access decision: ${isMember ? "granted" : "denied"}; user is ${
-      isMember ? "" : "NOT "
-    }a member of allowed groups`
-  );
+  // DETAILED DEBUG: Log each comparison
+  log.debug("Detailed group comparison", {
+    allowedGroupsSetting: themeSettings.allowed_groups,
+    parsedAllowedIds: allowedGroupIds,
+    normalizedAllowedIds,
+    rawUserGroupIds: userGroupIds,
+    normalizedUserGroupIds,
+    userGroupsObjects: userGroups.map(g => ({ id: g.id, name: g.name, type: typeof g.id }))
+  });
+
+  const isMember = normalizedAllowedIds.some((allowedId) => {
+    const found = normalizedUserGroupIds.includes(allowedId);
+    log.debug(`Checking if user is in group ${allowedId}: ${found}`);
+    return found;
+  });
+
+  log.info("Access decision", {
+    decision: isMember ? "GRANTED" : "DENIED",
+    isMember,
+    allowedGroupIds: normalizedAllowedIds,
+    userGroupIds: normalizedUserGroupIds,
+    rawAllowedGroupIds: allowedGroupIds,
+    rawUserGroupIds: userGroupIds
+  });
 
   return isMember;
 }
@@ -118,46 +142,35 @@ function resolveOwner(context) {
  * @returns {boolean} true if toggle button should be shown, false otherwise
  */
 export function shouldShowToggleButton(outletArgs) {
-
   const themeSettings = typeof settings !== "undefined" ? settings : {};
 
-  // eslint-disable-next-line no-console
-  console.log(
-    "[Toggle Button] Settings object:",
-    themeSettings,
-    "toggle_view_button_enabled:",
-    themeSettings.toggle_view_button_enabled
-  );
+  log.debug("Checking toggle button visibility", {
+    toggleEnabled: themeSettings.toggle_view_button_enabled,
+    hasOutletArgs: !!outletArgs
+  });
 
   // Check if toggle button is enabled in settings
   if (!themeSettings.toggle_view_button_enabled) {
-    // eslint-disable-next-line no-console
-    console.log(
-      "[Toggle Button] Toggle button disabled in settings:",
-      themeSettings.toggle_view_button_enabled
-    );
+    log.debug("Toggle button disabled in settings");
     return false;
   }
 
   // Get the topic from outlet args
   const topic = outletArgs?.model;
   if (!topic) {
-    // eslint-disable-next-line no-console
-    console.log("[Toggle Button] No topic found in outlet args");
+    log.debug("No topic found in outlet args");
     return false;
   }
 
   // Check if category is configured for owner comments
   const categoryEnabled = isCategoryEnabled(topic, themeSettings);
-  // eslint-disable-next-line no-console
-  console.log(
-    "[Toggle Button] Category check result:",
-    categoryEnabled,
-    "for topic category:",
-    topic.category_id,
-    "enabled categories:",
-    themeSettings.owner_comment_categories
-  );
+
+  log.info("Toggle button visibility decision", {
+    shouldShow: categoryEnabled,
+    topicCategoryId: topic.category_id,
+    enabledCategories: themeSettings.owner_comment_categories
+  });
+
   return categoryEnabled;
 }
 

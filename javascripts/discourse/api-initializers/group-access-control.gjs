@@ -1,4 +1,5 @@
 import { apiInitializer } from "discourse/lib/api";
+import { createLogger } from "../lib/logger";
 
 /**
  * Group-based access control for theme component.
@@ -8,20 +9,14 @@ import { apiInitializer } from "discourse/lib/api";
  *
  * Settings used:
  * - allowed_groups: list setting with group IDs (pipe-separated)
+ * - debug_logging_enabled: enable verbose console logging
  *
  * Access rules:
  * - If no groups are selected: enable for all users (including anonymous)
  * - If one or more groups are selected: enable only for logged-in users who are members of any selected groups
  */
 export default apiInitializer("1.15.0", (api) => {
-  const DEBUG = true; // Set to false to disable debug logging
-
-  function debugLog(...args) {
-    if (DEBUG) {
-      // eslint-disable-next-line no-console
-      console.log("[Group Access Control]", ...args);
-    }
-  }
+  const log = createLogger("[Owner View] [Group Access Control]");
 
   /**
    * Check if the current user is allowed to access the theme component.
@@ -37,18 +32,20 @@ export default apiInitializer("1.15.0", (api) => {
       .map((id) => parseInt(id.trim(), 10))
       .filter((id) => !isNaN(id));
 
-    debugLog("Allowed groups setting raw:", settings.allowed_groups);
-    debugLog("Allowed group IDs:", allowedGroupIds);
+    log.debug("Allowed groups setting", {
+      raw: settings.allowed_groups,
+      parsed: allowedGroupIds
+    });
 
     // If no groups are configured, enable for all users (unrestricted)
     if (allowedGroupIds.length === 0) {
-      debugLog("No groups configured; enabling for all users (unrestricted access)");
+      log.info("No groups configured; enabling for all users (unrestricted access)");
       return true;
     }
 
     // Groups are configured: anonymous users are not members of any group
     if (!currentUser) {
-      debugLog("Anonymous user and groups are configured; denying access");
+      log.info("Anonymous user and groups are configured; denying access");
       return false;
     }
 
@@ -57,19 +54,29 @@ export default apiInitializer("1.15.0", (api) => {
     const userGroupIds = userGroups.map((g) => g.id);
     const userGroupNames = userGroups.map((g) => g.name || g.full_name || g.slug);
 
-    debugLog("User groups raw:", userGroups);
-    debugLog("User group IDs:", userGroupIds);
-    debugLog("Allowed vs User IDs:", { allowedGroupIds, userGroupIds });
+    // Normalize both arrays to numbers for comparison
+    const normalizedAllowedIds = allowedGroupIds.map(id => Number(id));
+    const normalizedUserGroupIds = userGroupIds.map(id => Number(id));
 
-    const isMember = allowedGroupIds.some((allowedId) =>
-      userGroupIds.includes(allowedId)
+    log.debug("User group membership", {
+      userGroupIds: normalizedUserGroupIds,
+      userGroupNames,
+      allowedGroupIds: normalizedAllowedIds,
+      rawUserGroupIds: userGroupIds,
+      rawAllowedGroupIds: allowedGroupIds
+    });
+
+    const isMember = normalizedAllowedIds.some((allowedId) =>
+      normalizedUserGroupIds.includes(allowedId)
     );
 
-    debugLog(
-      `Access decision: ${isMember ? "granted" : "denied"}; user is ${
-        isMember ? "" : "NOT "
-      }a member of allowed groups; user group names: ${JSON.stringify(userGroupNames)}`
-    );
+    log.info("Access decision", {
+      decision: isMember ? "GRANTED" : "DENIED",
+      isMember,
+      userGroupNames,
+      allowedGroupIds: normalizedAllowedIds,
+      userGroupIds: normalizedUserGroupIds
+    });
 
     return isMember;
   }
@@ -83,19 +90,20 @@ export default apiInitializer("1.15.0", (api) => {
 
     if (allowed) {
       document.body.classList.add(bodyClass);
-      debugLog("Access granted; added body class:", bodyClass);
+      log.info("Access granted; added body class", { bodyClass });
     } else {
       document.body.classList.remove(bodyClass);
-      debugLog("Access denied; removed body class:", bodyClass);
+      log.info("Access denied; removed body class", { bodyClass });
     }
   }
 
   // Run on initial load
+  log.info("Initializing group access control");
   updateBodyClass();
 
   // Re-check on page changes (for SPA navigation)
-  api.onPageChange(() => {
-    debugLog("Page change detected; re-checking access");
+  api.onPageChange((url) => {
+    log.debug("Page change detected; re-checking access", { url });
     updateBodyClass();
   });
 });
