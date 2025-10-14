@@ -83,9 +83,21 @@ export function isUserAllowedAccess(helper, fallbackContext = null) {
   const normalizedAllowedIds = allowedGroupIds.map(id => Number(id));
   const normalizedUserGroupIds = userGroupIds.map(id => Number(id));
 
-  const isMember = normalizedAllowedIds.some((allowedId) =>
-    normalizedUserGroupIds.includes(allowedId)
-  );
+  // DETAILED DEBUG: Log each comparison
+  log.debug("Detailed group comparison", {
+    allowedGroupsSetting: themeSettings.allowed_groups,
+    parsedAllowedIds: allowedGroupIds,
+    normalizedAllowedIds,
+    rawUserGroupIds: userGroupIds,
+    normalizedUserGroupIds,
+    userGroupsObjects: userGroups.map(g => ({ id: g.id, name: g.name, type: typeof g.id }))
+  });
+
+  const isMember = normalizedAllowedIds.some((allowedId) => {
+    const found = normalizedUserGroupIds.includes(allowedId);
+    log.debug(`Checking if user is in group ${allowedId}: ${found}`);
+    return found;
+  });
 
   log.info("Access decision", {
     decision: isMember ? "GRANTED" : "DENIED",
