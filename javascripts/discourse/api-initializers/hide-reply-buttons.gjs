@@ -244,6 +244,35 @@ export default apiInitializer("1.15.0", (api) => {
       } else {
         document.body.classList.add("hide-reply-buttons-non-owners");
         log.info("User is not topic owner - hiding top-level reply buttons");
+
+        // Debug: Log what reply buttons are present in the DOM
+        schedule("afterRender", () => {
+          const replyButtons = {
+            timelineCreate: document.querySelectorAll(".timeline-footer-controls .create, .timeline-footer-controls button.create").length,
+            timelineReply: document.querySelectorAll(".timeline-footer-controls .reply-to-post, .timeline-footer-controls button.reply-to-post").length,
+            topicFooterCreate: document.querySelectorAll(".topic-footer-main-buttons .create, .topic-footer-main-buttons button.create").length,
+            topicFooterReply: document.querySelectorAll(".topic-footer-main-buttons .reply-to-post, .topic-footer-main-buttons button.reply-to-post").length,
+            embeddedReply: document.querySelectorAll(".embedded-reply-button").length,
+            allCreateButtons: document.querySelectorAll("button.create").length,
+            allReplyButtons: document.querySelectorAll("button.reply-to-post, button.reply").length
+          };
+
+          log.debug("Reply buttons in DOM after body class added", replyButtons);
+
+          // Log all reply-related buttons with their classes
+          const allButtons = document.querySelectorAll("button.create, button.reply-to-post, button.reply, .embedded-reply-button");
+          if (allButtons.length > 0) {
+            log.debug("All reply-related buttons found", {
+              count: allButtons.length,
+              buttons: Array.from(allButtons).map(btn => ({
+                classes: btn.className,
+                text: btn.textContent?.trim(),
+                parent: btn.parentElement?.className,
+                visible: window.getComputedStyle(btn).display !== "none"
+              }))
+            });
+          }
+        });
       }
 
       // Process visible posts with a small delay to ensure DOM is ready

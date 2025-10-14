@@ -222,14 +222,30 @@ body.hide-reply-buttons-non-owners {
   /* Timeline footer controls (desktop) */
   .timeline-footer-controls .create,
   .timeline-footer-controls .reply-to-post,
+  .timeline-footer-controls button.create,
+  .timeline-footer-controls button.reply-to-post,
+  .timeline-footer-controls button[aria-label*="Reply"],
+  .timeline-footer-controls button[aria-label*="reply"],
 
   /* Topic footer main buttons */
   .topic-footer-main-buttons .create,
   .topic-footer-main-buttons .reply-to-post,
+  .topic-footer-main-buttons button.create,
+  .topic-footer-main-buttons button.reply-to-post,
+  .topic-footer-main-buttons button[aria-label*="Reply"],
+  .topic-footer-main-buttons button[aria-label*="reply"],
 
   /* Legacy topic footer buttons outlet */
   .topic-footer-buttons .create,
   .topic-footer-buttons .reply-to-post,
+  .topic-footer-buttons button.create,
+  .topic-footer-buttons button.reply-to-post,
+
+  /* Topic footer buttons (any container) */
+  #topic-footer-buttons .create,
+  #topic-footer-buttons .reply-to-post,
+  #topic-footer-buttons button.create,
+  #topic-footer-buttons button.reply-to-post,
 
   /* Embedded reply buttons (section-level) */
   .embedded-reply-button {
