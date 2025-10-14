@@ -1,5 +1,6 @@
 import { apiInitializer } from "discourse/lib/api";
 import { schedule } from "@ember/runloop";
+import { createLogger } from "../lib/logger";
 
 export default apiInitializer("1.14.0", (api) => {
   let globalClickHandlerBound = false;
@@ -8,27 +9,9 @@ export default apiInitializer("1.14.0", (api) => {
 
   // Map to track active MutationObservers per post
   const activeObservers = new Map();
-  const LOG_PREFIX = "[Owner View] [Embedded Reply Buttons]";
-  const DEBUG = false; // Set to true for verbose logging
 
-  // Logging helpers
-  function logDebug(...args) {
-    if (DEBUG) {
-      console.log(LOG_PREFIX, ...args);
-    }
-  }
-
-  function logInfo(...args) {
-    console.log(LOG_PREFIX, ...args);
-  }
-
-  function logWarn(...args) {
-    console.warn(LOG_PREFIX, ...args);
-  }
-
-  function logError(...args) {
-    console.error(LOG_PREFIX, ...args);
-  }
+  // Centralized logger (controlled by debug_logging_enabled setting)
+  const log = createLogger("[Owner View] [Embedded Reply Buttons]");
 
   // Module-scoped state to remember last reply parent for fallback
   let lastReplyContext = { topicId: null, parentPostNumber: null };
@@ -167,11 +150,11 @@ export default apiInitializer("1.14.0", (api) => {
   // Helper function to scroll to newly created embedded post
   function tryScrollToNewReply(section) {
     if (!lastCreatedPost?.postNumber) {
-      logDebug("AutoScroll: no lastCreatedPost to scroll to");
+      log.debug("AutoScroll: no lastCreatedPost to scroll to");
       return false;
     }
 
-    logDebug(`AutoScroll: searching for post #${lastCreatedPost.postNumber} in section`);
+    log.debug(`AutoScroll: searching for post #${lastCreatedPost.postNumber} in section`);
 
     // Build selectors to find the newly created post (by number and optional id)
     const selectors = [
@@ -189,7 +172,7 @@ export default apiInitializer("1.14.0", (api) => {
       const el = section.querySelector(selector);
       if (el) {
         foundElement = el;
-        logDebug(`AutoScroll: found element with selector: ${selector}`);
+        log.debug(`AutoScroll: found element with selector: ${selector}`);
         break;
       }
     }
@@ -201,14 +184,14 @@ export default apiInitializer("1.14.0", (api) => {
         const pn = extractPostNumberFromElement(el);
         if (pn === Number(lastCreatedPost.postNumber)) {
           foundElement = el;
-          logDebug(`AutoScroll: found element by scanning candidates (post #${pn})`);
+          log.debug(`AutoScroll: found element by scanning candidates (post #${pn})`);
           break;
         }
       }
     }
 
     if (foundElement) {
-      logInfo(`AutoScroll: scrolling to post #${lastCreatedPost.postNumber}`);
+      log.info(`AutoScroll: scrolling to post #${lastCreatedPost.postNumber}`);
 
       // Scroll the element into view
       foundElement.scrollIntoView({
@@ -230,16 +213,16 @@ export default apiInitializer("1.14.0", (api) => {
           hideMainStreamDuplicateInOwnerMode(pn, pid);
         }
       } catch (err) {
-        logWarn("Failed to hide duplicate in main stream", err);
+        log.warn("Failed to hide duplicate in main stream", err);
       }
 
       // Clear the state to avoid repeated scrolls
-      logDebug("AutoScroll: clearing lastCreatedPost after successful scroll");
+      log.debug("AutoScroll: clearing lastCreatedPost after successful scroll");
       lastCreatedPost = null;
       return true;
     }
 
-    logDebug(`AutoScroll: post #${lastCreatedPost.postNumber} not found in section yet`);
+    log.debug(`AutoScroll: post #${lastCreatedPost.postNumber} not found in section yet`);
     return false;
   }
 
@@ -276,12 +259,12 @@ export default apiInitializer("1.14.0", (api) => {
       if (article) {
         article.style.display = "none";
         article.dataset.ownerModeHidden = "true";
-        logDebug(`Hidden main stream post #${postNumber || "(unknown)"} in owner mode`);
+        log.debug(`Hidden main stream post #${postNumber || "(unknown)"} in owner mode`);
       } else {
-        logDebug(`No main stream duplicate found to hide for post #${postNumber || "(unknown)"}`);
+        log.debug(`No main stream duplicate found to hide for post #${postNumber || "(unknown)"}`);
       }
     } catch (err) {
-      logWarn("Failed to hide main stream duplicate", err);
+      log.warn("Failed to hide main stream duplicate", err);
     }
   }
 
@@ -294,17 +277,17 @@ export default apiInitializer("1.14.0", (api) => {
    */
   async function expandEmbeddedReplies(ownerPostElement, { timeoutMs = 5000 } = {}) {
     if (!ownerPostElement) {
-      logDebug("Expand: no owner post element provided");
+      log.debug("Expand: no owner post element provided");
       return false;
     }
 
     const postNumber = ownerPostElement.dataset?.postNumber;
-    logDebug(`Expand: attempting to expand embedded replies for post #${postNumber}`);
+    log.debug(`Expand: attempting to expand embedded replies for post #${postNumber}`);
 
     // Check if already expanded
     const existingSection = ownerPostElement.querySelector("section.embedded-posts");
     if (existingSection) {
-      logDebug(`Expand: section already exists for post #${postNumber}`);
+      log.debug(`Expand: section already exists for post #${postNumber}`);
       return true;
     }
 
@@ -314,14 +297,14 @@ export default apiInitializer("1.14.0", (api) => {
     );
 
     if (!toggleBtn) {
-      logDebug(`Expand: no toggle button found for post #${postNumber}`);
+      log.debug(`Expand: no toggle button found for post #${postNumber}`);
       return false;
     }
 
-    logDebug(`Expand: clicking toggle button for post #${postNumber}`);
+    log.debug(`Expand: clicking toggle button for post #${postNumber}`);
     const clicked = robustClick(toggleBtn);
     if (!clicked) {
-      logDebug(`Expand: failed to click toggle button for post #${postNumber}`);
+      log.debug(`Expand: failed to click toggle button for post #${postNumber}`);
       return false;
     }
 
@@ -332,7 +315,7 @@ export default apiInitializer("1.14.0", (api) => {
         if (!resolved) {
           resolved = true;
           observer.disconnect();
-          logDebug(`Expand: timeout waiting for section to appear for post #${postNumber}`);
+          log.debug(`Expand: timeout waiting for section to appear for post #${postNumber}`);
           resolve(false);
         }
       }, timeoutMs);
@@ -343,7 +326,7 @@ export default apiInitializer("1.14.0", (api) => {
           resolved = true;
           clearTimeout(timeoutId);
           observer.disconnect();
-          logDebug(`Expand: section appeared for post #${postNumber}`);
+          log.debug(`Expand: section appeared for post #${postNumber}`);
           resolve(true);
         }
       });
@@ -365,7 +348,7 @@ export default apiInitializer("1.14.0", (api) => {
    */
   async function loadAllEmbeddedReplies(ownerPostElement, { maxClicks = 20, timeoutMs = 10000 } = {}) {
     if (!ownerPostElement) {
-      logDebug(`LoadAll: no owner post element provided`);
+      log.debug(`LoadAll: no owner post element provided`);
       return false;
     }
 
@@ -373,11 +356,11 @@ export default apiInitializer("1.14.0", (api) => {
     const section = ownerPostElement.querySelector("section.embedded-posts");
 
     if (!section) {
-      logDebug(`LoadAll: no embedded section found for post #${postNumber}`);
+      log.debug(`LoadAll: no embedded section found for post #${postNumber}`);
       return false;
     }
 
-    logDebug(`LoadAll: starting to load all replies for post #${postNumber}`);
+    log.debug(`LoadAll: starting to load all replies for post #${postNumber}`);
 
     const startTime = Date.now();
     let clickCount = 0;
@@ -385,28 +368,28 @@ export default apiInitializer("1.14.0", (api) => {
     while (clickCount < maxClicks) {
       // Check timeout
       if (Date.now() - startTime > timeoutMs) {
-        logDebug(`LoadAll: timeout after ${clickCount} clicks for post #${postNumber}`);
+        log.debug(`LoadAll: timeout after ${clickCount} clicks for post #${postNumber}`);
         return false;
       }
 
       // Find load more button
       const loadMoreBtn = section.querySelector(".load-more-replies");
       if (!loadMoreBtn) {
-        logDebug(`LoadAll: no more load-more button, all replies loaded for post #${postNumber} (${clickCount} clicks)`);
+        log.debug(`LoadAll: no more load-more button, all replies loaded for post #${postNumber} (${clickCount} clicks)`);
         return true;
       }
 
       // Check if button is disabled/loading
       if (loadMoreBtn.disabled || loadMoreBtn.classList.contains("loading")) {
-        logDebug(`LoadAll: button is disabled/loading, waiting...`);
+        log.debug(`LoadAll: button is disabled/loading, waiting...`);
         await new Promise(resolve => setTimeout(resolve, 500));
         continue;
       }
 
-      logDebug(`LoadAll: clicking load-more button (click #${clickCount + 1}) for post #${postNumber}`);
+      log.debug(`LoadAll: clicking load-more button (click #${clickCount + 1}) for post #${postNumber}`);
       const clicked = robustClick(loadMoreBtn);
       if (!clicked) {
-        logDebug(`LoadAll: failed to click load-more button for post #${postNumber}`);
+        log.debug(`LoadAll: failed to click load-more button for post #${postNumber}`);
         return false;
       }
 
@@ -431,7 +414,7 @@ export default apiInitializer("1.14.0", (api) => {
       await new Promise(resolve => setTimeout(resolve, 200));
     }
 
-    logDebug(`LoadAll: reached max clicks (${maxClicks}) for post #${postNumber}`);
+    log.debug(`LoadAll: reached max clicks (${maxClicks}) for post #${postNumber}`);
     return false;
   }
 
@@ -439,7 +422,7 @@ export default apiInitializer("1.14.0", (api) => {
    * Clear collapsed section expansion state
    */
   function finalizeCollapsedFlow() {
-    logDebug(`Finalize: clearing collapsed expansion state and ephemeral reply state`);
+    log.debug(`Finalize: clearing collapsed expansion state and ephemeral reply state`);
     replyToCollapsedSection = false;
     replyOwnerPostNumberForExpand = null;
     expandOrchestratorActive = false;
@@ -455,11 +438,11 @@ export default apiInitializer("1.14.0", (api) => {
    * Used by both embedded reply button and intercepted standard reply button
    */
   async function openReplyToOwnerPost(topic, ownerPost, ownerPostNumber) {
-    logInfo(`Opening reply to owner post #${ownerPostNumber}`);
+    log.info(`Opening reply to owner post #${ownerPostNumber}`);
 
     const composer = api.container.lookup("service:composer");
     if (!composer) {
-      logDebug(`Composer not available`);
+      log.debug(`Composer not available`);
       return;
     }
 
@@ -478,7 +461,7 @@ export default apiInitializer("1.14.0", (api) => {
       parentPostNumber: ownerPostNumber,
       ownerPostNumber
     };
-    logInfo(`Stored lastReplyContext`, lastReplyContext);
+    log.info(`Stored lastReplyContext`, lastReplyContext);
 
     // Add post model if available, otherwise use post number
     if (ownerPost) {
@@ -488,14 +471,14 @@ export default apiInitializer("1.14.0", (api) => {
     }
 
     await composer.open(composerOptions);
-    logInfo(`Composer opened successfully`);
+    log.info(`Composer opened successfully`);
   }
 
   // Function to inject a single reply button at the section level
   function injectEmbeddedReplyButtons(section) {
     // Skip if section already has a reply button
     if (!section || section.dataset.replyBtnBound || section.querySelector(".embedded-reply-button")) {
-      logDebug(`Section already has reply button, skipping injection`);
+      log.debug(`Section already has reply button, skipping injection`);
       return { injected: 0, reason: "already-bound" };
     }
 
@@ -503,7 +486,7 @@ export default apiInitializer("1.14.0", (api) => {
     const collapseButton = section.querySelector(".widget-button.collapse-up, button.collapse-up, .collapse-embedded-posts");
 
     if (!collapseButton) {
-      logDebug(`Collapse button not found in section, will append to section`);
+      log.debug(`Collapse button not found in section, will append to section`);
     }
 
     // Create the reply button
@@ -515,48 +498,48 @@ export default apiInitializer("1.14.0", (api) => {
     btn.setAttribute("aria-label", "Reply to owner's post");
 
     // Store the owner post number on the button for easy retrieval
-    logDebug(`Attempting to find owner post for section:`, section);
-    logDebug(`Section ID:`, section.id);
-    logDebug(`Section classes:`, section.className);
+    log.debug(`Attempting to find owner post for section:`, section);
+    log.debug(`Section ID:`, section.id);
+    log.debug(`Section classes:`, section.className);
 
     const ownerPost = getOwnerPostFromSection(section);
-    logDebug(`Owner post element:`, ownerPost);
+    log.debug(`Owner post element:`, ownerPost);
 
     let ownerPostNumber = null;
 
     if (ownerPost) {
       ownerPostNumber = extractPostNumberFromElement(ownerPost);
-      logDebug(`Extracted owner post number from element:`, ownerPostNumber);
+      log.debug(`Extracted owner post number from element:`, ownerPostNumber);
 
       if (!ownerPostNumber) {
-        logWarn(`Could not extract post number from owner post element`);
-        logWarn(`Owner post dataset:`, ownerPost.dataset);
-        logWarn(`Owner post id:`, ownerPost.id);
-        logWarn(`Owner post attributes:`, Array.from(ownerPost.attributes).map(a => `${a.name}="${a.value}"`));
+        log.warn(`Could not extract post number from owner post element`);
+        log.warn(`Owner post dataset:`, ownerPost.dataset);
+        log.warn(`Owner post id:`, ownerPost.id);
+        log.warn(`Owner post attributes:`, Array.from(ownerPost.attributes).map(a => `${a.name}="${a.value}"`));
       }
     } else {
-      logWarn(`Could not find owner post element (article.topic-post) for section`);
-      logWarn(`Section parent elements:`, section.parentElement, section.parentElement?.parentElement);
+      log.warn(`Could not find owner post element (article.topic-post) for section`);
+      log.warn(`Section parent elements:`, section.parentElement, section.parentElement?.parentElement);
 
       // Fallback: Try to extract from section ID (e.g., "embedded-posts--123")
       if (section.id) {
         const match = section.id.match(/--(\d+)$/);
         if (match) {
           ownerPostNumber = Number(match[1]);
-          logDebug(`Extracted owner post number from section ID:`, ownerPostNumber);
+          log.debug(`Extracted owner post number from section ID:`, ownerPostNumber);
         }
       }
     }
 
     if (ownerPostNumber) {
       btn.dataset.ownerPostNumber = String(ownerPostNumber);
-      logDebug(`Successfully stored owner post number ${ownerPostNumber} on button`);
-      logDebug(`Button data-owner-post-number attribute:`, btn.dataset.ownerPostNumber);
-      logDebug(`Button element after setting attribute:`, btn);
+      log.debug(`Successfully stored owner post number ${ownerPostNumber} on button`);
+      log.debug(`Button data-owner-post-number attribute:`, btn.dataset.ownerPostNumber);
+      log.debug(`Button element after setting attribute:`, btn);
     } else {
-      logError(`CRITICAL: Could not determine owner post number - button will not work!`);
-      logError(`Section:`, section);
-      logError(`Owner post:`, ownerPost);
+      log.error(`CRITICAL: Could not determine owner post number - button will not work!`);
+      log.error(`Section:`, section);
+      log.error(`Owner post:`, ownerPost);
     }
 
     // Position the button next to the collapse button
@@ -580,7 +563,7 @@ export default apiInitializer("1.14.0", (api) => {
         // Insert reply button before collapse button in wrapper
         wrapper.insertBefore(btn, collapseButton);
 
-        logDebug(`Created button container and injected reply button`);
+        log.debug(`Created button container and injected reply button`);
       } else {
         // Collapse button is already in a container
         // Just insert our button before it
@@ -591,7 +574,7 @@ export default apiInitializer("1.14.0", (api) => {
           buttonContainer.classList.add("embedded-posts-controls");
         }
 
-        logDebug(`Injected reply button into existing container`);
+        log.debug(`Injected reply button into existing container`);
       }
     } else {
       // Fallback: create a container at the end of the section
@@ -599,7 +582,7 @@ export default apiInitializer("1.14.0", (api) => {
       wrapper.className = "embedded-posts-controls";
       wrapper.appendChild(btn);
       section.appendChild(wrapper);
-      logDebug(`Created button container at end of section (collapse button not found)`);
+      log.debug(`Created button container at end of section (collapse button not found)`);
     }
 
     // Mark section as having a button
@@ -627,14 +610,14 @@ export default apiInitializer("1.14.0", (api) => {
             if (node.nodeType === Node.ELEMENT_NODE) {
               // Check if the added node is or contains section.embedded-posts
               if (node.matches && node.matches("section.embedded-posts")) {
-                logDebug(`Embedded section detected, attempting injection`);
+                log.debug(`Embedded section detected, attempting injection`);
                 const res = injectEmbeddedReplyButtons(node);
                 if (res.reason === "success") {
-                  logDebug(`Button injected successfully`);
+                  log.debug(`Button injected successfully`);
                   observer.disconnect();
                   activeObservers.delete(postElement);
                 } else if (res.reason === "already-bound") {
-                  logDebug(`Section already has button`);
+                  log.debug(`Section already has button`);
                   observer.disconnect();
                   activeObservers.delete(postElement);
                 } else {
@@ -647,7 +630,7 @@ export default apiInitializer("1.14.0", (api) => {
                 const embeddedSections = node.querySelectorAll("section.embedded-posts");
                 if (embeddedSections.length > 0) {
                   embeddedSections.forEach(section => {
-                    logDebug(`Embedded section detected (nested), attempting injection`);
+                    log.debug(`Embedded section detected (nested), attempting injection`);
                     const res = injectEmbeddedReplyButtons(section);
                     if (res.reason !== "success" && res.reason !== "already-bound") {
                       setupSectionChildObserver(section);
@@ -670,7 +653,7 @@ export default apiInitializer("1.14.0", (api) => {
     });
 
     activeObservers.set(postElement, observer);
-    logDebug(`Set up observer for post element`);
+    log.debug(`Set up observer for post element`);
   }
 
   // Function to observe stream for a specific embedded section id (fallback)
@@ -695,7 +678,7 @@ export default apiInitializer("1.14.0", (api) => {
           // Check if our target section now exists
           const section = stream.querySelector(targetSelector);
           if (section) {
-            logDebug(`Section found by ID, attempting injection`);
+            log.debug(`Section found by ID, attempting injection`);
             const res = injectEmbeddedReplyButtons(section);
             if (res.reason !== "success" && res.reason !== "already-bound") {
               setupSectionChildObserver(section);
@@ -721,13 +704,13 @@ export default apiInitializer("1.14.0", (api) => {
       return;
     }
 
-    logDebug(`Waiting for collapse button to appear in section`);
+    log.debug(`Waiting for collapse button to appear in section`);
 
     const observer = new MutationObserver(() => {
       // Check if collapse button is now present
       const collapseButton = section.querySelector(".widget-button.collapse-up, button.collapse-up, .collapse-embedded-posts");
       if (collapseButton) {
-        logDebug(`Collapse button detected, injecting reply button`);
+        log.debug(`Collapse button detected, injecting reply button`);
         injectEmbeddedReplyButtons(section);
         observer.disconnect();
         activeObservers.delete(section);
@@ -749,10 +732,10 @@ export default apiInitializer("1.14.0", (api) => {
         e.preventDefault();
         e.stopPropagation();
 
-        logDebug(`Section-level reply button clicked`);
-        logDebug(`Button element:`, btn);
-        logDebug(`Button dataset:`, btn.dataset);
-        logDebug(`Button data-owner-post-number:`, btn.dataset.ownerPostNumber);
+        log.debug(`Section-level reply button clicked`);
+        log.debug(`Button element:`, btn);
+        log.debug(`Button dataset:`, btn.dataset);
+        log.debug(`Button data-owner-post-number:`, btn.dataset.ownerPostNumber);
 
         try {
           // Get required services and models
@@ -760,22 +743,22 @@ export default apiInitializer("1.14.0", (api) => {
           const composer = api.container.lookup("service:composer");
 
           if (!topic || !composer) {
-            logDebug(`Topic or composer not available`);
+            log.debug(`Topic or composer not available`);
             return;
           }
 
           // Get the owner post number from the button's data attribute
           const ownerPostNumber = btn.dataset.ownerPostNumber ? Number(btn.dataset.ownerPostNumber) : null;
-          logDebug(`Parsed owner post number:`, ownerPostNumber);
+          log.debug(`Parsed owner post number:`, ownerPostNumber);
 
           if (!ownerPostNumber) {
-            logError(`Owner post number not found on button`);
-            logError(`Button HTML:`, btn.outerHTML);
-            logError(`All button attributes:`, Array.from(btn.attributes).map(a => `${a.name}="${a.value}"`));
+            log.error(`Owner post number not found on button`);
+            log.error(`Button HTML:`, btn.outerHTML);
+            log.error(`All button attributes:`, Array.from(btn.attributes).map(a => `${a.name}="${a.value}"`));
             return;
           }
 
-          logDebug(`Replying to owner post #${ownerPostNumber}`);
+          log.debug(`Replying to owner post #${ownerPostNumber}`);
 
           // Find the owner post model
           let ownerPost = topic.postStream?.posts?.find(
@@ -795,7 +778,7 @@ export default apiInitializer("1.14.0", (api) => {
                 ownerPost = topicPosts.find(p => p.post_number === ownerPostNumber);
               }
             } catch (fetchError) {
-              logDebug(`Failed to fetch owner post:`, fetchError);
+              log.debug(`Failed to fetch owner post:`, fetchError);
             }
 
             // If we still don't have the owner post, use shared function with null post
@@ -804,7 +787,7 @@ export default apiInitializer("1.14.0", (api) => {
                 await openReplyToOwnerPost(topic, null, ownerPostNumber);
                 return;
               } catch (composerError) {
-                logDebug(`Failed to open composer:`, composerError);
+                log.debug(`Failed to open composer:`, composerError);
                 return;
               }
             }
@@ -813,7 +796,7 @@ export default apiInitializer("1.14.0", (api) => {
           // Use shared function to open composer
           await openReplyToOwnerPost(topic, ownerPost, ownerPostNumber);
         } catch (error) {
-          logDebug(`Error opening composer:`, error);
+          log.debug(`Error opening composer:`, error);
         }
       },
       true // Use capture phase
@@ -864,19 +847,19 @@ export default apiInitializer("1.14.0", (api) => {
         return;
       }
 
-      logDebug(`Show replies button clicked for post #${postElement?.dataset?.postNumber}`);
+      log.debug(`Show replies button clicked for post #${postElement?.dataset?.postNumber}`);
 
       // Check if embedded posts already exist (fast path)
       schedule("afterRender", () => {
         const existingSection = postElement.querySelector("section.embedded-posts");
         if (existingSection) {
-          logDebug(`Embedded section already exists, attempting injection`);
+          log.debug(`Embedded section already exists, attempting injection`);
           const res = injectEmbeddedReplyButtons(existingSection);
           if (res.reason !== "success" && res.reason !== "already-bound") {
             setupSectionChildObserver(existingSection);
           }
         } else {
-          logDebug(`Embedded section not yet rendered, setting up observer`);
+          log.debug(`Embedded section not yet rendered, setting up observer`);
           setupPostObserver(postElement);
           // Also set up a fallback observer using aria-controls if available
           if (controlsId) {
@@ -901,7 +884,7 @@ export default apiInitializer("1.14.0", (api) => {
         // Guard 1: Only intercept in owner comment mode
         const isOwnerCommentMode = document.body.dataset.ownerCommentMode === "true";
         if (!isOwnerCommentMode) {
-          logDebug(`Standard reply - not in owner mode, allowing default`);
+          log.debug(`Standard reply - not in owner mode, allowing default`);
           return;
         }
 
@@ -920,7 +903,7 @@ export default apiInitializer("1.14.0", (api) => {
           const match = ariaLabel && ariaLabel.match(/post\s*#?(\d+)/i);
           if (match) {
             postNumber = Number(match[1]);
-            logDebug(`Standard reply - derived postNumber ${postNumber} from aria-label`);
+            log.debug(`Standard reply - derived postNumber ${postNumber} from aria-label`);
           }
         }
 
@@ -930,12 +913,12 @@ export default apiInitializer("1.14.0", (api) => {
             `article.topic-post[data-post-number="${postNumber}"],[data-post-number="${postNumber}"],#post_${postNumber}`
           );
           if (postElement) {
-            logDebug(`Standard reply - resolved postElement globally for post #${postNumber}`);
+            log.debug(`Standard reply - resolved postElement globally for post #${postNumber}`);
           }
         }
 
         if (!postElement && !postNumber) {
-          logDebug(`Standard reply - no post element or number found`);
+          log.debug(`Standard reply - no post element or number found`);
           return;
         }
 
@@ -944,7 +927,7 @@ export default apiInitializer("1.14.0", (api) => {
         const topicOwnerId = topic?.details?.created_by?.id;
 
         if (!postNumber || !topic || !topicOwnerId) {
-          logDebug(`Standard reply - missing required data`);
+          log.debug(`Standard reply - missing required data`);
           return;
         }
 
@@ -953,12 +936,12 @@ export default apiInitializer("1.14.0", (api) => {
         const isOwnerPost = post?.user_id === topicOwnerId;
 
         if (!isOwnerPost) {
-          logDebug(`Standard reply - not owner post, allowing default`);
+          log.debug(`Standard reply - not owner post, allowing default`);
           return;
         }
 
         // All guards passed - intercept the click!
-        logInfo(`Standard reply intercepted for owner post #${postNumber}`);
+        log.info(`Standard reply intercepted for owner post #${postNumber}`);
 
         // Prevent default Discourse behavior
         e.preventDefault();
@@ -972,11 +955,11 @@ export default apiInitializer("1.14.0", (api) => {
         const isCollapsed = !section || !!hasToggleBtn;
 
         if (isCollapsed) {
-          logDebug(`Detected collapsed embedded section for post #${postNumber}`);
+          log.debug(`Detected collapsed embedded section for post #${postNumber}`);
           replyToCollapsedSection = true;
           replyOwnerPostNumberForExpand = postNumber;
         } else {
-          logDebug(`Embedded section is expanded for post #${postNumber}`);
+          log.debug(`Embedded section is expanded for post #${postNumber}`);
           replyToCollapsedSection = false;
           replyOwnerPostNumberForExpand = null;
         }
@@ -984,13 +967,13 @@ export default apiInitializer("1.14.0", (api) => {
         // Set suppression flag for post-creation handling
         suppressStandardReplyScroll = true;
         suppressedReplyPostNumber = postNumber;
-        logDebug(`Set suppression flag for post #${postNumber}`);
+        log.debug(`Set suppression flag for post #${postNumber}`);
 
         try {
           // Use shared function to open composer (same as embedded button)
           await openReplyToOwnerPost(topic, post, postNumber);
         } catch (error) {
-          logError(`Error opening composer for standard reply:`, error);
+          log.error(`Error opening composer for standard reply:`, error);
           // Clear suppression flag on error
           suppressStandardReplyScroll = false;
           suppressedReplyPostNumber = null;
@@ -1000,7 +983,7 @@ export default apiInitializer("1.14.0", (api) => {
     );
 
     standardReplyInterceptBound = true;
-    logDebug(`Standard reply interceptor bound`);
+    log.debug(`Standard reply interceptor bound`);
   }
 
   // Inject reply buttons into embedded posts on page changes (for already-expanded sections)
@@ -1013,7 +996,7 @@ export default apiInitializer("1.14.0", (api) => {
 
     // Clear collapsed section expansion state on navigation
     if (replyToCollapsedSection || replyOwnerPostNumberForExpand || expandOrchestratorActive) {
-      logDebug(`onPageChange: clearing stale collapsed expansion state`);
+      log.debug(`onPageChange: clearing stale collapsed expansion state`);
       finalizeCollapsedFlow();
     }
 
@@ -1023,7 +1006,7 @@ export default apiInitializer("1.14.0", (api) => {
         document.body.dataset.ownerCommentMode === "true";
 
       if (!isOwnerCommentMode) {
-        logDebug(`Not in owner comment mode, skipping injection`);
+        log.debug(`Not in owner comment mode, skipping injection`);
         return;
       }
 
@@ -1033,11 +1016,11 @@ export default apiInitializer("1.14.0", (api) => {
       );
 
       if (embeddedSections.length === 0) {
-        logDebug(`No embedded sections found on page`);
+        log.debug(`No embedded sections found on page`);
         return;
       }
 
-      logDebug(`Found ${embeddedSections.length} embedded section(s), injecting buttons`);
+      log.debug(`Found ${embeddedSections.length} embedded section(s), injecting buttons`);
 
       // Inject buttons into each section
       let successCount = 0;
@@ -1050,21 +1033,21 @@ export default apiInitializer("1.14.0", (api) => {
         }
       });
 
-      logDebug(`Injected ${successCount} button(s) on page load`);
+      log.debug(`Injected ${successCount} button(s) on page load`);
     });
   });
 
   // Auto-refresh embedded posts after reply submission
   if (!composerEventsBound) {
-    logInfo(`AutoRefresh: initializing composer event listeners`);
+    log.info(`AutoRefresh: initializing composer event listeners`);
     const appEvents = api.container.lookup("service:app-events");
 
     if (appEvents) {
       // Listen to post:created to capture the newly created post details
-      logDebug(`AutoScroll: binding post:created listener`);
+      log.debug(`AutoScroll: binding post:created listener`);
       appEvents.on("post:created", (createdPost) => {
         const isOwnerCommentMode = document.body.dataset.ownerCommentMode === "true";
-        logDebug(`AutoScroll: post:created fired`, {
+        log.debug(`AutoScroll: post:created fired`, {
           post_number: createdPost?.post_number,
           reply_to_post_number: createdPost?.reply_to_post_number,
           topic_id: createdPost?.topic_id,
@@ -1072,7 +1055,7 @@ export default apiInitializer("1.14.0", (api) => {
         });
 
         if (!isOwnerCommentMode) {
-          logDebug(`AutoScroll: skipping - not in owner comment mode`);
+          log.debug(`AutoScroll: skipping - not in owner comment mode`);
           return;
         }
 
@@ -1084,19 +1067,19 @@ export default apiInitializer("1.14.0", (api) => {
           replyToPostNumber: createdPost?.reply_to_post_number,
           timestamp: Date.now()
         };
-        logDebug(`AutoScroll: stored lastCreatedPost`, lastCreatedPost);
+        log.debug(`AutoScroll: stored lastCreatedPost`, lastCreatedPost);
       });
 
-      logDebug(`AutoRefresh: app-events service available, binding composer:saved`);
+      log.debug(`AutoRefresh: app-events service available, binding composer:saved`);
       appEvents.on("composer:saved", (post) => {
         try {
 
-        logInfo(`AutoRefresh: binding composer:saved handler`);
+        log.info(`AutoRefresh: binding composer:saved handler`);
 
         // Check and consume suppression flag from standard reply interception
         if (suppressStandardReplyScroll) {
-          logInfo(`Standard reply suppression active - preventing default scroll`);
-          logInfo(`Suppressed post number: ${suppressedReplyPostNumber}`);
+          log.info(`Standard reply suppression active - preventing default scroll`);
+          log.info(`Suppressed post number: ${suppressedReplyPostNumber}`);
           suppressStandardReplyScroll = false;
           suppressedReplyPostNumber = null;
           // Continue with embedded refresh logic below
@@ -1104,16 +1087,16 @@ export default apiInitializer("1.14.0", (api) => {
 
         // Only process in owner comment mode
         const isOwnerCommentMode = document.body.dataset.ownerCommentMode === "true";
-        logInfo(`AutoRefresh: composer:saved fired`, { id: post?.id, post_number: post?.post_number, reply_to_post_number: post?.reply_to_post_number, isOwnerCommentMode });
+        log.info(`AutoRefresh: composer:saved fired`, { id: post?.id, post_number: post?.post_number, reply_to_post_number: post?.reply_to_post_number, isOwnerCommentMode });
         if (!isOwnerCommentMode) {
-          logInfo(`AutoRefresh: skipping - not in owner comment mode`);
+          log.info(`AutoRefresh: skipping - not in owner comment mode`);
           return;
         }
 
         // Derive parent post number from multiple sources (fallback chain)
         const composerSvc = api.container.lookup("service:composer");
         const composerModel = composerSvc?.model;
-        logInfo(`AutoRefresh: composer.model snapshot`, {
+        log.info(`AutoRefresh: composer.model snapshot`, {
           action: composerModel?.action,
           replyToPostNumber: composerModel?.replyToPostNumber,
           post_number: composerModel?.post?.post_number,
@@ -1137,16 +1120,16 @@ export default apiInitializer("1.14.0", (api) => {
           if (currentTopic && lastReplyContext.topicId === currentTopic.id) {
             parentPostNumber = lastReplyContext.parentPostNumber;
             parentSource = "lastReplyContext";
-            logInfo(`AutoRefresh: using lastReplyContext fallback`, lastReplyContext);
+            log.info(`AutoRefresh: using lastReplyContext fallback`, lastReplyContext);
           }
         }
 
         if (!parentPostNumber) {
-          logInfo(`AutoRefresh: skipping - could not determine parent post number`);
+          log.info(`AutoRefresh: skipping - could not determine parent post number`);
           return;
         }
 
-        logInfo(`AutoRefresh: target parent post #${parentPostNumber} (source: ${parentSource})`);
+        log.info(`AutoRefresh: target parent post #${parentPostNumber} (source: ${parentSource})`);
 
         // In filtered view, the embedded post we replied to is NOT a standalone article.topic-post
         // Instead, it's embedded inside an owner's post in section.embedded-posts
@@ -1160,7 +1143,7 @@ export default apiInitializer("1.14.0", (api) => {
             `article.topic-post[data-post-number="${lastReplyContext.ownerPostNumber}"]`
           );
           if (ownerPostElement) {
-            logDebug(`AutoRefresh: using ownerPostNumber from lastReplyContext -> #${lastReplyContext.ownerPostNumber}`);
+            log.debug(`AutoRefresh: using ownerPostNumber from lastReplyContext -> #${lastReplyContext.ownerPostNumber}`);
           }
         }
 
@@ -1171,14 +1154,14 @@ export default apiInitializer("1.14.0", (api) => {
             || document.querySelector(`#post-${parentPostNumber}`)?.closest?.("article.topic-post, article")
             || document.querySelector(`[data-post-number="${parentPostNumber}"]`)?.closest?.("article.topic-post, article");
           if (ownerPostElement) {
-            logDebug(`AutoRefresh: direct owner post lookup succeeded for #${parentPostNumber}`);
+            log.debug(`AutoRefresh: direct owner post lookup succeeded for #${parentPostNumber}`);
           }
         }
 
         // Strategy 1: Try to find the embedded post element by data-post-number or data-post-id inside sections
         // Hoist sections outside the conditional and iterate safely
         const allEmbeddedSections = document.querySelectorAll("section.embedded-posts");
-        logDebug(`AutoRefresh: found ${allEmbeddedSections.length} embedded-posts sections`);
+        log.debug(`AutoRefresh: found ${allEmbeddedSections.length} embedded-posts sections`);
 
         if (!ownerPostElement) {
           for (const section of allEmbeddedSections) {
@@ -1187,7 +1170,7 @@ export default apiInitializer("1.14.0", (api) => {
             );
             if (embeddedPost) {
               ownerPostElement = section.closest("article.topic-post");
-              logDebug(`AutoRefresh: found embedded post #${parentPostNumber} inside owner post #${ownerPostElement?.dataset?.postNumber}`);
+              log.debug(`AutoRefresh: found embedded post #${parentPostNumber} inside owner post #${ownerPostElement?.dataset?.postNumber}`);
               break;
             }
           }
@@ -1200,7 +1183,7 @@ export default apiInitializer("1.14.0", (api) => {
               const m = section.id.match(/--(\d+)$/);
               if (m && Number(m[1]) === Number(parentPostNumber)) {
                 ownerPostElement = section.closest("article.topic-post") || section.closest("article") || section.parentElement;
-                logDebug(`AutoRefresh: matched owner post by section.id -> #${parentPostNumber}`);
+                log.debug(`AutoRefresh: matched owner post by section.id -> #${parentPostNumber}`);
                 break;
               }
             }
@@ -1217,15 +1200,15 @@ export default apiInitializer("1.14.0", (api) => {
             || document.querySelector(`#post-${parentPostNumber}`)?.closest?.("article.topic-post, article")
             || document.querySelector(`[data-post-number="${parentPostNumber}"]`)?.closest?.("article.topic-post, article");
           if (ownerPostElement) {
-            logDebug(`AutoRefresh: found owner post via direct lookup variants for #${parentPostNumber}`);
+            log.debug(`AutoRefresh: found owner post via direct lookup variants for #${parentPostNumber}`);
           }
         }
 
         if (!ownerPostElement) {
-          logDebug(`AutoRefresh: could not find owner post containing embedded post #${parentPostNumber}`);
+          log.debug(`AutoRefresh: could not find owner post containing embedded post #${parentPostNumber}`);
           return;
         }
-        logDebug(`AutoRefresh: targeting owner post #${ownerPostElement.dataset?.postNumber || ownerPostElement.id || "(unknown)"} for refresh`);
+        log.debug(`AutoRefresh: targeting owner post #${ownerPostElement.dataset?.postNumber || ownerPostElement.id || "(unknown)"} for refresh`);
 
         // Decide expansion based on current DOM state (more robust than stored flags)
         let ownerPostNumber = Number(ownerPostElement?.dataset?.postNumber);
@@ -1249,11 +1232,11 @@ export default apiInitializer("1.14.0", (api) => {
         const collapsedNow = !sectionNow || !!hasToggleNow;
 
         if (collapsedNow) {
-          logInfo(`AutoRefresh: collapsed detected for owner post #${ownerPostNumber} — expanding and loading replies`);
+          log.info(`AutoRefresh: collapsed detected for owner post #${ownerPostNumber} — expanding and loading replies`);
 
           // Prevent duplicate orchestration
           if (expandOrchestratorActive) {
-            logDebug(`AutoRefresh: expansion already in progress, skipping`);
+            log.debug(`AutoRefresh: expansion already in progress, skipping`);
             return;
           }
           expandOrchestratorActive = true;
@@ -1262,11 +1245,11 @@ export default apiInitializer("1.14.0", (api) => {
           schedule("afterRender", async () => {
             try {
               // Step 1: Expand the collapsed section
-              logDebug(`AutoRefresh: Step 1 - Expanding collapsed section for post #${ownerPostNumber}`);
+              log.debug(`AutoRefresh: Step 1 - Expanding collapsed section for post #${ownerPostNumber}`);
               const expanded = await expandEmbeddedReplies(ownerPostElement, { timeoutMs: 5000 });
 
               if (!expanded) {
-                logWarn(`AutoRefresh: expansion failed for post #${ownerPostNumber}, attempting best-effort`);
+                log.warn(`AutoRefresh: expansion failed for post #${ownerPostNumber}, attempting best-effort`);
                 // Hide duplicate anyway
                 if (lastCreatedPost?.postNumber || lastCreatedPost?.postId) {
                   hideMainStreamDuplicateInOwnerMode(lastCreatedPost.postNumber, lastCreatedPost.postId);
@@ -1276,11 +1259,11 @@ export default apiInitializer("1.14.0", (api) => {
               }
 
               // Step 2: Load all replies
-              logDebug(`AutoRefresh: Step 2 - Loading all replies for post #${ownerPostNumber}`);
+              log.debug(`AutoRefresh: Step 2 - Loading all replies for post #${ownerPostNumber}`);
               const allLoaded = await loadAllEmbeddedReplies(ownerPostElement, { maxClicks: 20, timeoutMs: 10000 });
 
               if (!allLoaded) {
-                logWarn(`AutoRefresh: loading all replies timed out or reached max clicks for post #${ownerPostNumber}`);
+                log.warn(`AutoRefresh: loading all replies timed out or reached max clicks for post #${ownerPostNumber}`);
                 // Continue anyway - the new post might already be visible
               }
 
@@ -1288,14 +1271,14 @@ export default apiInitializer("1.14.0", (api) => {
               const section = ownerPostElement.querySelector("section.embedded-posts");
               if (section) {
                 if (lastCreatedPost?.postNumber) {
-                  logDebug(`AutoRefresh: Step 3 - Attempting to scroll to new post #${lastCreatedPost.postNumber}`);
+                  log.debug(`AutoRefresh: Step 3 - Attempting to scroll to new post #${lastCreatedPost.postNumber}`);
                   const scrolled = tryScrollToNewReply(section);
 
                   if (!scrolled) {
-                    logDebug(`AutoRefresh: immediate scroll failed, setting up observer`);
+                    log.debug(`AutoRefresh: immediate scroll failed, setting up observer`);
                     const scrollObserver = new MutationObserver(() => {
                       if (tryScrollToNewReply(section)) {
-                        logDebug(`AutoRefresh: observer successfully scrolled to new post`);
+                        log.debug(`AutoRefresh: observer successfully scrolled to new post`);
                         scrollObserver.disconnect();
                       }
                     });
@@ -1307,7 +1290,7 @@ export default apiInitializer("1.14.0", (api) => {
 
                     // Timeout for observer
                     setTimeout(() => {
-                      logDebug(`AutoRefresh: scroll observer timeout`);
+                      log.debug(`AutoRefresh: scroll observer timeout`);
                       scrollObserver.disconnect();
                       lastCreatedPost = null;
                     }, 10000);
@@ -1326,7 +1309,7 @@ export default apiInitializer("1.14.0", (api) => {
               // Clear collapsed flow state
               finalizeCollapsedFlow();
             } catch (err) {
-              logError(`AutoRefresh: error in collapsed flow orchestration`, err);
+              log.error(`AutoRefresh: error in collapsed flow orchestration`, err);
               finalizeCollapsedFlow();
             }
           });
@@ -1338,30 +1321,30 @@ export default apiInitializer("1.14.0", (api) => {
         // Wait for DOM to update, then trigger "load more replies"
         schedule("afterRender", () => {
           // Try to find the "load more replies" button in the owner's post
-          logDebug(`AutoRefresh: schedule(afterRender) start for owner post #${ownerPostElement.dataset.postNumber}`);
+          log.debug(`AutoRefresh: schedule(afterRender) start for owner post #${ownerPostElement.dataset.postNumber}`);
           const embeddedSection = ownerPostElement.querySelector("section.embedded-posts");
-          logDebug(`AutoRefresh: embeddedSection ${embeddedSection ? "found" : "NOT found"}`);
+          log.debug(`AutoRefresh: embeddedSection ${embeddedSection ? "found" : "NOT found"}`);
           const loadMoreBtn = embeddedSection?.querySelector(".load-more-replies");
-          logDebug(`AutoRefresh: loadMoreBtn ${loadMoreBtn ? "found" : "NOT found"}`);
+          log.debug(`AutoRefresh: loadMoreBtn ${loadMoreBtn ? "found" : "NOT found"}`);
 
           if (loadMoreBtn) {
             // Clear stored context after handling to avoid stale data
             lastReplyContext = { topicId: null, parentPostNumber: null };
-            logDebug(`AutoRefresh: cleared lastReplyContext`);
+            log.debug(`AutoRefresh: cleared lastReplyContext`);
 
-            logDebug(`AutoRefresh: clicking loadMoreBtn immediately`);
+            log.debug(`AutoRefresh: clicking loadMoreBtn immediately`);
             const ok = robustClick(loadMoreBtn);
-            logDebug(`AutoRefresh: robustClick(loadMoreBtn) =>`, ok);
+            log.debug(`AutoRefresh: robustClick(loadMoreBtn) =>`, ok);
 
             // After clicking, try to scroll to the new post or set up observer
             if (embeddedSection) {
               // Try immediate scroll (in case post is already rendered)
               if (!tryScrollToNewReply(embeddedSection)) {
                 // If not found yet, set up observer to scroll when it appears
-                logDebug(`AutoScroll: setting up observer for new post after load-more click`);
+                log.debug(`AutoScroll: setting up observer for new post after load-more click`);
                 const scrollObserver = new MutationObserver(() => {
                   if (tryScrollToNewReply(embeddedSection)) {
-                    logDebug(`AutoScroll: observer successfully scrolled to new post`);
+                    log.debug(`AutoScroll: observer successfully scrolled to new post`);
                     scrollObserver.disconnect();
                   }
                 });
@@ -1373,7 +1356,7 @@ export default apiInitializer("1.14.0", (api) => {
 
                 // Timeout to prevent infinite observation (10 seconds)
                 setTimeout(() => {
-                  logDebug(`AutoScroll: observer timeout - new post not found within 10s`);
+                  log.debug(`AutoScroll: observer timeout - new post not found within 10s`);
                   scrollObserver.disconnect();
                   // Clear stale state
                   lastCreatedPost = null;
@@ -1382,19 +1365,19 @@ export default apiInitializer("1.14.0", (api) => {
             }
           } else {
             // If button doesn't exist yet, set up an observer to wait for it
-            logDebug(`AutoRefresh: waiting for loadMoreBtn via MutationObserver`);
+            log.debug(`AutoRefresh: waiting for loadMoreBtn via MutationObserver`);
             const observer = new MutationObserver(() => {
               const btn = ownerPostElement.querySelector(
                 "section.embedded-posts .load-more-replies"
               );
 
               if (btn) {
-                logDebug(`AutoRefresh: observer found loadMoreBtn, clicking`);
+                log.debug(`AutoRefresh: observer found loadMoreBtn, clicking`);
                 // Clear stored context before clicking
                 lastReplyContext = { topicId: null, parentPostNumber: null };
-                logDebug(`AutoRefresh: cleared lastReplyContext`);
+                log.debug(`AutoRefresh: cleared lastReplyContext`);
                 const ok2 = robustClick(btn);
-                logDebug(`AutoRefresh: robustClick(observer btn) =>`, ok2);
+                log.debug(`AutoRefresh: robustClick(observer btn) =>`, ok2);
                 observer.disconnect();
 
                 // After clicking, set up scroll observer
@@ -1403,10 +1386,10 @@ export default apiInitializer("1.14.0", (api) => {
                   // Try immediate scroll
                   if (!tryScrollToNewReply(section)) {
                     // Set up observer to scroll when new post appears
-                    logDebug(`AutoScroll: setting up observer for new post after delayed load-more click`);
+                    log.debug(`AutoScroll: setting up observer for new post after delayed load-more click`);
                     const scrollObserver = new MutationObserver(() => {
                       if (tryScrollToNewReply(section)) {
-                        logDebug(`AutoScroll: observer successfully scrolled to new post`);
+                        log.debug(`AutoScroll: observer successfully scrolled to new post`);
                         scrollObserver.disconnect();
                       }
                     });
@@ -1418,7 +1401,7 @@ export default apiInitializer("1.14.0", (api) => {
 
                     // Timeout to prevent infinite observation (10 seconds)
                     setTimeout(() => {
-                      logDebug(`AutoScroll: observer timeout - new post not found within 10s`);
+                      log.debug(`AutoScroll: observer timeout - new post not found within 10s`);
                       scrollObserver.disconnect();
                       // Clear stale state
                       lastCreatedPost = null;
@@ -1435,13 +1418,13 @@ export default apiInitializer("1.14.0", (api) => {
 
             // Timeout to prevent infinite observation (5 seconds)
             setTimeout(() => {
-              logDebug(`AutoRefresh: observer timeout - loadMoreBtn not found within 5s`);
+              log.debug(`AutoRefresh: observer timeout - loadMoreBtn not found within 5s`);
               observer.disconnect();
             }, 5000);
           }
         });
       } catch (err) {
-        logError(`AutoRefresh: error inside composer:saved`, err);
+        log.error(`AutoRefresh: error inside composer:saved`, err);
       }
       });
 
