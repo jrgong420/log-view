@@ -45,6 +45,30 @@ hide_reply_buttons_for_non_owners:
   description: "Hide reply buttons in configured Owner comment categories: (1) post-level buttons on posts authored by non-owners, and (2) topic-level buttons (timeline footer, topic footer) when the viewer is not the topic owner. Applies in both filtered and regular topic views. Does not check Allowed groups. This is a UI-only restriction and does not prevent replies via keyboard shortcuts or API calls."
 
 
+# Owner reply filter (experimental prototype)
+
+enable_owner_reply_filter:
+  type: bool
+  default: false
+  description: "Enable experimental filter to hide topic owner's replies to other users (keeps top-level posts and self-replies visible). Theme-only prototype; timeline/anchors may misalign. For production, use a server-side plugin."
+
+owner_reply_filter_categories:
+  type: list
+  list_type: category
+  default: ""
+  description: "Categories where the owner reply filter can be activated. Leave empty to allow in all categories."
+
+show_owner_reply_filter_notice:
+  type: bool
+  default: true
+  description: "Show a notice banner when the owner reply filter is active"
+
+debug_owner_reply_filter:
+  type: bool
+  default: false
+  description: "Enable debug logging for the owner reply filter feature"
+
+
 # Debugging and logging
 
 debug_logging_enabled:

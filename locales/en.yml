@@ -6,6 +6,10 @@ en:
       allowed_groups: "Select one or more groups allowed to access this theme component. Leave empty to enable for all users (including anonymous). Note: Groups must have visibility set to 'group owners, members and moderators' or more permissive for the theme to detect user membership."
       behavior_for_anonymous: "[Deprecated] No longer used; access depends on Allowed groups (empty = everyone)."
       hide_reply_buttons_for_non_owners: "Hide top-level reply buttons (timeline and topic footer) from all users except the topic owner in categories configured for owner comments. Post-level reply buttons remain visible and are styled as primary actions. This is a UI-only restriction and does not prevent replies via keyboard shortcuts (Shift+R) or API."
+      enable_owner_reply_filter: "Enable experimental filter to hide topic owner's replies to other users (keeps top-level posts and self-replies visible). Theme-only prototype; timeline/anchors may misalign. For production, use a server-side plugin."
+      owner_reply_filter_categories: "Categories where the owner reply filter can be activated. Leave empty to allow in all categories."
+      show_owner_reply_filter_notice: "Show a notice banner when the owner reply filter is active"
+      debug_owner_reply_filter: "Enable debug logging for the owner reply filter feature"
       debug_logging_enabled: "Enable verbose console logging for debugging theme component behavior. Warning: This will generate significant console output. Only enable when troubleshooting issues. Changes take effect on next page load."
   js:
     owner_comments:
@@ -14,3 +18,10 @@ en:
     owner_toggle:
       unfiltered: "Thema"
       filtered: "Growreport"
+
+    owner_reply_filter:
+      notice_title: "Filtered View Active"
+      notice_text: "Hiding topic owner's replies to other users. Top-level posts and self-replies remain visible."
+      show_all_button: "Show All Posts"
+      toggle_label_on: "Hide Owner Replies to Others"
+      toggle_label_off: "Show All Posts"
