@@ -71,7 +71,7 @@ body:not(.theme-component-access-granted) {
 
 /* Override the default grey color for reply button icons */
 nav.post-controls button.reply .d-icon {
-  color: var(--tertiary) !important;
+  color: var(--d-button-primary-text-color)!important;
 }
 
 

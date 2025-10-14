@@ -14,6 +14,11 @@ export default apiInitializer("1.14.0", (api) => {
   // Module-scoped state to track newly created post for auto-scroll
   let lastCreatedPost = null;
 
+  // Standard reply button interception state
+  let standardReplyInterceptBound = false;
+  let suppressStandardReplyScroll = false;
+  let suppressedReplyPostNumber = null;
+
   // Support multiple markup variants for embedded rows
   // Support multiple markup variants for embedded rows (broad but scoped to the section)
   const EMBEDDED_ITEM_SELECTOR = "[data-post-id], [data-post-number], li[id^=\"post_\"], article[id^=\"post_\"], article.topic-post, .embedded-posts__post, .embedded-post, li.embedded-post, .embedded-post-item";
@@ -199,6 +204,47 @@ export default apiInitializer("1.14.0", (api) => {
 
     console.log(`${LOG_PREFIX} AutoScroll: post #${lastCreatedPost.postNumber} not found in section yet`);
     return false;
+  }
+
+  /**
+   * Shared function to open composer for replying to owner's post
+   * Used by both embedded reply button and intercepted standard reply button
+   */
+  async function openReplyToOwnerPost(topic, ownerPost, ownerPostNumber) {
+    console.log(`${LOG_PREFIX} Opening reply to owner post #${ownerPostNumber}`);
+
+    const composer = api.container.lookup("service:composer");
+    if (!composer) {
+      console.log(`${LOG_PREFIX} Composer not available`);
+      return;
+    }
+
+    // Build composer options
+    const composerOptions = {
+      action: "reply",
+      topic: topic,
+      draftKey: topic.draft_key,
+      draftSequence: topic.draft_sequence,
+      skipJumpOnSave: true,
+    };
+
+    // Store context for auto-refresh fallback
+    lastReplyContext = {
+      topicId: topic.id,
+      parentPostNumber: ownerPostNumber,
+      ownerPostNumber
+    };
+    console.log(`${LOG_PREFIX} Stored lastReplyContext`, lastReplyContext);
+
+    // Add post model if available, otherwise use post number
+    if (ownerPost) {
+      composerOptions.post = ownerPost;
+    } else {
+      composerOptions.replyToPostNumber = ownerPostNumber;
+    }
+
+    await composer.open(composerOptions);
+    console.log(`${LOG_PREFIX} Composer opened successfully`);
   }
 
   // Function to inject a single reply button at the section level
@@ -508,21 +554,10 @@ export default apiInitializer("1.14.0", (api) => {
               console.log(`${LOG_PREFIX} Failed to fetch owner post:`, fetchError);
             }
 
-            // If we still don't have the owner post, try opening composer with just the post number
+            // If we still don't have the owner post, use shared function with null post
             if (!ownerPost) {
               try {
-                // Store context for auto-refresh fallback before opening composer
-                lastReplyContext = { topicId: topic.id, parentPostNumber: ownerPostNumber, ownerPostNumber };
-                console.log(`${LOG_PREFIX} AutoRefresh: stored lastReplyContext (early path)`, lastReplyContext);
-
-                await composer.open({
-                  action: "reply",
-                  topic: topic,
-                  draftKey: topic.draft_key,
-                  draftSequence: topic.draft_sequence,
-                  skipJumpOnSave: true,
-                  replyToPostNumber: ownerPostNumber,
-                });
+                await openReplyToOwnerPost(topic, null, ownerPostNumber);
                 return;
               } catch (composerError) {
                 console.log(`${LOG_PREFIX} Failed to open composer:`, composerError);
@@ -531,25 +566,8 @@ export default apiInitializer("1.14.0", (api) => {
             }
           }
 
-          // Open the composer
-          const composerOptions = {
-            action: "reply",
-            topic: topic,
-            draftKey: topic.draft_key,
-            draftSequence: topic.draft_sequence,
-            skipJumpOnSave: true,
-          };
-
-          // Remember context for auto-refresh fallback
-          lastReplyContext = { topicId: topic.id, parentPostNumber: ownerPostNumber, ownerPostNumber };
-          console.log(`${LOG_PREFIX} AutoRefresh: stored lastReplyContext`, lastReplyContext);
-
-          if (ownerPost) {
-            composerOptions.post = ownerPost;
-          }
-
-          await composer.open(composerOptions);
-          console.log(`${LOG_PREFIX} Composer opened successfully`);
+          // Use shared function to open composer
+          await openReplyToOwnerPost(topic, ownerPost, ownerPostNumber);
         } catch (error) {
           console.log(`${LOG_PREFIX} Error opening composer:`, error);
         }
@@ -626,6 +644,76 @@ export default apiInitializer("1.14.0", (api) => {
     }, true); // Use capture phase
 
     showRepliesClickHandlerBound = true;
+  }
+
+  // Delegated click handler for standard reply buttons (intercept in filtered view)
+  if (!standardReplyInterceptBound) {
+    document.addEventListener(
+      "click",
+      async (e) => {
+        const btn = e.target?.closest?.("button.post-action-menu__reply");
+        if (!btn) return;
+
+        // Guard 1: Only intercept in owner comment mode
+        const isOwnerCommentMode = document.body.dataset.ownerCommentMode === "true";
+        if (!isOwnerCommentMode) {
+          console.log(`${LOG_PREFIX} Standard reply - not in owner mode, allowing default`);
+          return;
+        }
+
+        // Guard 2: Find the post element
+        const postElement = btn.closest("article.topic-post");
+        if (!postElement) {
+          console.log(`${LOG_PREFIX} Standard reply - no post element found`);
+          return;
+        }
+
+        // Guard 3: Get topic and verify data availability
+        const topic = api.container.lookup("controller:topic")?.model;
+        const topicOwnerId = topic?.details?.created_by?.id;
+        const postNumber = extractPostNumberFromElement(postElement);
+
+        if (!postNumber || !topic || !topicOwnerId) {
+          console.log(`${LOG_PREFIX} Standard reply - missing required data`);
+          return;
+        }
+
+        // Guard 4: Check if this is an owner post
+        const post = topic.postStream?.posts?.find(p => p.post_number === postNumber);
+        const isOwnerPost = post?.user_id === topicOwnerId;
+
+        if (!isOwnerPost) {
+          console.log(`${LOG_PREFIX} Standard reply - not owner post, allowing default`);
+          return;
+        }
+
+        // All guards passed - intercept the click!
+        console.log(`${LOG_PREFIX} Standard reply intercepted for owner post #${postNumber}`);
+
+        // Prevent default Discourse behavior
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Set suppression flag for post-creation handling
+        suppressStandardReplyScroll = true;
+        suppressedReplyPostNumber = postNumber;
+        console.log(`${LOG_PREFIX} Set suppression flag for post #${postNumber}`);
+
+        try {
+          // Use shared function to open composer (same as embedded button)
+          await openReplyToOwnerPost(topic, post, postNumber);
+        } catch (error) {
+          console.error(`${LOG_PREFIX} Error opening composer for standard reply:`, error);
+          // Clear suppression flag on error
+          suppressStandardReplyScroll = false;
+          suppressedReplyPostNumber = null;
+        }
+      },
+      true // Use capture phase for early interception
+    );
+
+    standardReplyInterceptBound = true;
+    console.log(`${LOG_PREFIX} Standard reply interceptor bound`);
   }
 
   // Inject reply buttons into embedded posts on page changes (for already-expanded sections)
@@ -711,6 +799,16 @@ export default apiInitializer("1.14.0", (api) => {
         try {
 
         console.log(`${LOG_PREFIX} AutoRefresh: binding composer:saved handler`);
+
+        // Check and consume suppression flag from standard reply interception
+        if (suppressStandardReplyScroll) {
+          console.log(`${LOG_PREFIX} Standard reply suppression active - preventing default scroll`);
+          console.log(`${LOG_PREFIX} Suppressed post number: ${suppressedReplyPostNumber}`);
+          suppressStandardReplyScroll = false;
+          suppressedReplyPostNumber = null;
+          // Continue with embedded refresh logic below
+        }
+
         // Only process in owner comment mode
         const isOwnerCommentMode = document.body.dataset.ownerCommentMode === "true";
         console.log(`${LOG_PREFIX} AutoRefresh: composer:saved fired`, { id: post?.id, post_number: post?.post_number, reply_to_post_number: post?.reply_to_post_number, isOwnerCommentMode });
