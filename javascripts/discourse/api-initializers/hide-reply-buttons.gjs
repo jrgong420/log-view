@@ -1,6 +1,7 @@
 import { schedule } from "@ember/runloop";
 import { apiInitializer } from "discourse/lib/api";
 import { parseCategoryIds } from "../lib/group-access-utils";
+import { createLogger } from "../lib/logger";
 
 /**
  * Hide Reply Buttons for Non-Owners
@@ -11,16 +12,14 @@ import { parseCategoryIds } from "../lib/group-access-utils";
  *
  * This is a UI-only restriction and does not prevent replies via keyboard
  * shortcuts (Shift+R) or API calls.
+ *
+ * Settings used:
+ * - hide_reply_buttons_for_non_owners: enable this feature
+ * - owner_comment_categories: list of category IDs
+ * - debug_logging_enabled: enable verbose console logging
  */
 
-const DEBUG = false; // Reduced logging by default; set to true for troubleshooting
-
-function debugLog(...args) {
-  if (DEBUG) {
-    // eslint-disable-next-line no-console
-    console.log("[Hide Reply Buttons]", ...args);
-  }
-}
+const log = createLogger("[Owner View] [Hide Reply Buttons]");
 
 // Track active MutationObserver to clean up on route changes
 let streamObserver = null;
@@ -57,21 +56,26 @@ function classifyPost(postElement, topic, topicOwnerId) {
 
   const postNumber = extractPostNumberFromElement(postElement);
   if (!postNumber) {
-    debugLog("Could not extract post number from element:", postElement);
+    log.warn("Could not extract post number from element", { postElement });
     return;
   }
 
   // Find the post model in the topic's post stream
   const post = topic.postStream?.posts?.find(p => p.post_number === postNumber);
   if (!post) {
-    debugLog(`Post #${postNumber} not found in post stream`);
+    log.debug("Post not found in post stream", { postNumber });
     return;
   }
 
   const postAuthorId = post.user_id;
   const isOwnerPost = postAuthorId === topicOwnerId;
 
-  debugLog(`Post #${postNumber}: author=${postAuthorId}, owner=${topicOwnerId}, isOwner=${isOwnerPost}`);
+  log.debug("Classifying post", {
+    postNumber,
+    postAuthorId,
+    topicOwnerId,
+    isOwnerPost
+  });
 
   // Add classification class
   if (isOwnerPost) {
@@ -91,7 +95,7 @@ function classifyPost(postElement, topic, topicOwnerId) {
  */
 function processVisiblePosts(topic, topicOwnerId) {
   const postElements = document.querySelectorAll("article.topic-post");
-  debugLog(`Processing ${postElements.length} visible posts`);
+  log.info("Processing visible posts", { count: postElements.length });
 
   postElements.forEach(postElement => {
     classifyPost(postElement, topic, topicOwnerId);
@@ -106,11 +110,12 @@ function observeStreamForNewPosts(topic, topicOwnerId) {
   if (streamObserver) {
     streamObserver.disconnect();
     streamObserver = null;
+    log.debug("Disconnected previous MutationObserver");
   }
 
   const streamContainer = document.querySelector("#topic .post-stream, .post-stream");
   if (!streamContainer) {
-    debugLog("Post stream container not found");
+    log.warn("Post stream container not found");
     return;
   }
 
@@ -121,16 +126,18 @@ function observeStreamForNewPosts(topic, topicOwnerId) {
           if (node.nodeType === Node.ELEMENT_NODE) {
             // Check if the added node is a post
             if (node.matches && node.matches("article.topic-post")) {
-              debugLog("New post detected, classifying:", node);
+              log.debugThrottled("New post detected (direct)", { node });
               classifyPost(node, topic, topicOwnerId);
             }
             // Check if the added node contains posts
             else if (node.querySelectorAll) {
               const posts = node.querySelectorAll("article.topic-post");
-              posts.forEach(post => {
-                debugLog("New post detected (nested), classifying:", post);
-                classifyPost(post, topic, topicOwnerId);
-              });
+              if (posts.length > 0) {
+                log.debugThrottled("New posts detected (nested)", { count: posts.length });
+                posts.forEach(post => {
+                  classifyPost(post, topic, topicOwnerId);
+                });
+              }
             }
           }
         });
@@ -143,62 +150,66 @@ function observeStreamForNewPosts(topic, topicOwnerId) {
     subtree: true
   });
 
-  debugLog("MutationObserver set up for post stream");
+  log.info("MutationObserver set up for post stream");
 }
 
 export default apiInitializer("1.15.0", (api) => {
   api.onPageChange((url) => {
     schedule("afterRender", () => {
-      debugLog("Page changed to:", url);
+      log.debug("Page changed", { url });
 
       // Clean up previous observer
       if (streamObserver) {
         streamObserver.disconnect();
         streamObserver = null;
+        log.debug("Cleaned up previous observer");
       }
 
       // Guard 1: Check if setting is enabled
       if (!settings.hide_reply_buttons_for_non_owners) {
-        debugLog("Setting disabled; skipping");
+        log.debug("Setting disabled; skipping");
         return;
       }
 
-      debugLog("Setting enabled; evaluating conditions");
+      log.info("Hide reply buttons feature enabled; evaluating conditions");
 
       // Guard 2: Get topic data
       const topic = api.container.lookup("controller:topic")?.model;
       if (!topic) {
-        debugLog("No topic found; skipping");
+        log.debug("No topic found; skipping");
         return;
       }
 
-      debugLog("Topic found:", { id: topic.id, category_id: topic.category_id });
+      log.debug("Topic found", {
+        topicId: topic.id,
+        categoryId: topic.category_id
+      });
 
       // Guard 3: Check if category is configured for owner comments
       const categoryId = topic.category_id;
       const enabledCategories = parseCategoryIds(settings.owner_comment_categories);
 
-      debugLog("Category check:", {
+      log.debug("Category check", {
         topicCategory: categoryId,
-        enabledCategories,
+        enabledCategories
       });
 
       if (!enabledCategories.includes(categoryId)) {
-        debugLog("Category not configured; skipping");
+        log.debug("Category not configured; skipping");
         return;
       }
 
-      debugLog("Category is configured; proceeding with post classification");
+      log.info("Category is configured; proceeding with post classification");
 
       // Guard 4: Get topic owner ID
       const topicOwnerId = topic.details?.created_by?.id;
 
       if (!topicOwnerId) {
-        debugLog("No topic owner data; skipping");
+        log.warn("No topic owner data available; skipping");
         return;
       }
 
-      debugLog("Topic owner ID:", topicOwnerId);
+      log.info("Starting post classification", { topicOwnerId });
 
       // Process all visible posts
       processVisiblePosts(topic, topicOwnerId);

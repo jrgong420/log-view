@@ -8,7 +8,7 @@ export default apiInitializer("1.14.0", (api) => {
 
   // Map to track active MutationObservers per post
   const activeObservers = new Map();
-  const LOG_PREFIX = "[Embedded Reply Buttons]";
+  const LOG_PREFIX = "[Owner View] [Embedded Reply Buttons]";
   const DEBUG = false; // Set to true for verbose logging
 
   // Logging helpers

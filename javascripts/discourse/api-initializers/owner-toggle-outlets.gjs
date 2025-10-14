@@ -6,6 +6,19 @@ import {
   isUserAllowedAccess,
   shouldShowToggleButton,
 } from "../lib/group-access-utils";
+import { createLogger } from "../lib/logger";
+
+/**
+ * Owner Toggle Outlets - Render toggle button in timeline and mobile outlets
+ *
+ * Settings used:
+ * - toggle_view_button_enabled: enable toggle button
+ * - owner_comment_categories: list of category IDs
+ * - allowed_groups: list of group IDs for access control
+ * - debug_logging_enabled: enable verbose console logging
+ */
+
+const log = createLogger("[Owner View] [Toggle Outlets]");
 
 class BaseOwnerToggle extends Component {
   get topic() {
@@ -27,18 +40,30 @@ class BaseOwnerToggle extends Component {
 
 class TimelineOwnerToggle extends BaseOwnerToggle {
   static shouldRender(outletArgs, helper) {
-    if (!shouldShowToggleButton(outletArgs)) {
+    const shouldShow = shouldShowToggleButton(outletArgs);
+    if (!shouldShow) {
+      log.debug("Timeline toggle: shouldShowToggleButton returned false");
       return false;
     }
 
-    if (!isUserAllowedAccess(helper, outletArgs)) {
+    const hasAccess = isUserAllowedAccess(helper, outletArgs);
+    if (!hasAccess) {
+      log.debug("Timeline toggle: user access denied");
       return false;
     }
 
     const owner = getOwner(helper);
     const site = owner?.lookup?.("service:site");
+    const isDesktop = !!site && !site.mobileView;
 
-    return !!site && !site.mobileView;
+    log.debug("Timeline toggle shouldRender", {
+      shouldShow,
+      hasAccess,
+      isDesktop,
+      result: isDesktop
+    });
+
+    return isDesktop;
   }
 
   get wrapperClass() {
@@ -48,18 +73,30 @@ class TimelineOwnerToggle extends BaseOwnerToggle {
 
 class MobileOwnerToggle extends BaseOwnerToggle {
   static shouldRender(outletArgs, helper) {
-    if (!shouldShowToggleButton(outletArgs)) {
+    const shouldShow = shouldShowToggleButton(outletArgs);
+    if (!shouldShow) {
+      log.debug("Mobile toggle: shouldShowToggleButton returned false");
       return false;
     }
 
-    if (!isUserAllowedAccess(helper, outletArgs)) {
+    const hasAccess = isUserAllowedAccess(helper, outletArgs);
+    if (!hasAccess) {
+      log.debug("Mobile toggle: user access denied");
       return false;
     }
 
     const owner = getOwner(helper);
     const site = owner?.lookup?.("service:site");
+    const isMobile = !!site && site.mobileView;
 
-    return !!site && site.mobileView;
+    log.debug("Mobile toggle shouldRender", {
+      shouldShow,
+      hasAccess,
+      isMobile,
+      result: isMobile
+    });
+
+    return isMobile;
   }
 
   get wrapperClass() {
@@ -68,6 +105,7 @@ class MobileOwnerToggle extends BaseOwnerToggle {
 }
 
 export default apiInitializer("1.15.0", (api) => {
+  log.info("Registering toggle button outlets");
   api.renderInOutlet("timeline-footer-controls-after", TimelineOwnerToggle);
   api.renderInOutlet("before-topic-progress", MobileOwnerToggle);
 });

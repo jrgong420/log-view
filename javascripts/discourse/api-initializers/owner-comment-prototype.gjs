@@ -1,33 +1,34 @@
 import { schedule } from "@ember/runloop";
 import { apiInitializer } from "discourse/lib/api";
+import { createLogger } from "../lib/logger";
 
-// Note: `settings` is a global variable provided by Discourse for theme components
-// It contains all theme settings defined in settings.yml
+/**
+ * Owner Comment Prototype - Auto-filter topics to show only owner's posts
+ *
+ * Settings used:
+ * - owner_comment_categories: list of category IDs where auto-filter applies
+ * - auto_mode: enable automatic filtering
+ * - debug_logging_enabled: enable verbose console logging
+ *
+ * Note: `settings` is a global variable provided by Discourse for theme components
+ */
 export default apiInitializer("1.15.0", (api) => {
-  const DEBUG = false; // Reduced logging by default; set to true for troubleshooting
-
-  function debugLog(...args) {
-    if (DEBUG) {
-      // eslint-disable-next-line no-console
-      console.log("[Owner Comments]", ...args);
-    }
-  }
+  const log = createLogger("[Owner View] [Owner Comments]");
 
   // Helper function to check if category matches configured categories
   function isCategoryEnabled(topic, settings) {
-    debugLog("Checking if category is enabled for topic:", topic.id);
-    debugLog("Topic category_id:", topic.category_id);
-    debugLog("Topic category:", topic.category);
-    debugLog("Settings:", settings);
+    log.debug("Checking if category is enabled", {
+      topicId: topic.id,
+      categoryId: topic.category_id
+    });
 
     if (!settings.owner_comment_categories) {
-      debugLog("No categories configured in settings");
+      log.debug("No categories configured in settings");
       return false;
     }
 
     // When list_type is 'category', Discourse provides category IDs as a pipe-separated string
     const categorySetting = settings.owner_comment_categories;
-    debugLog("Raw category setting:", categorySetting);
 
     // Parse the category IDs from the setting
     const enabledCategoryIds = categorySetting
@@ -35,22 +36,24 @@ export default apiInitializer("1.15.0", (api) => {
       .map((c) => parseInt(c.trim(), 10))
       .filter((c) => !isNaN(c));
 
-    debugLog("Enabled category IDs:", enabledCategoryIds);
+    log.debug("Category configuration", {
+      rawSetting: categorySetting,
+      enabledCategoryIds
+    });
 
     if (enabledCategoryIds.length === 0) {
-      debugLog("No valid category IDs found in settings");
+      log.debug("No valid category IDs found in settings");
       return false;
     }
 
     const topicCategoryId = topic.category_id;
     const isEnabled = enabledCategoryIds.includes(topicCategoryId);
 
-    debugLog(
-      "Topic category ID:",
+    log.info("Category check result", {
       topicCategoryId,
-      "- Enabled:",
-      isEnabled
-    );
+      isEnabled,
+      enabledCategoryIds
+    });
 
     return isEnabled;
   }
@@ -58,23 +61,33 @@ export default apiInitializer("1.15.0", (api) => {
   function ensureServerSideFilter(topic) {
     const ownerUsername = topic?.details?.created_by?.username;
     if (!ownerUsername) {
-      debugLog("Owner username not yet available; skip navigation this cycle");
+      log.debug("Owner username not yet available; skip navigation this cycle");
       return false;
     }
 
     const url = new URL(window.location.href);
     const currentFilter = url.searchParams.get("username_filters");
 
+    log.debug("Checking server-side filter", {
+      ownerUsername,
+      currentFilter,
+      alreadyFiltered: currentFilter === ownerUsername
+    });
+
     if (currentFilter === ownerUsername) {
       // Already filtered by owner; mark and continue
       document.body.dataset.ownerCommentMode = "true";
+      log.info("Already filtered by owner; marking body");
       return true;
     }
 
     // Preserve current path/post_number; only set the filter username
     url.searchParams.set("username_filters", ownerUsername);
 
-    debugLog("Navigating to server-filtered URL:", url.toString());
+    log.info("Navigating to server-filtered URL", {
+      url: url.toString(),
+      ownerUsername
+    });
 
     // Force a full navigation so the server builds the filtered TopicView
     window.location.replace(url.toString());
@@ -83,7 +96,7 @@ export default apiInitializer("1.15.0", (api) => {
   }
 
   function clearOwnerFilter() {
-    debugLog("Clearing owner filter");
+    log.info("Clearing owner filter");
     delete document.body.dataset.ownerCommentMode;
   }
 
@@ -133,9 +146,10 @@ export default apiInitializer("1.15.0", (api) => {
           const topic = api.container.lookup("controller:topic")?.model;
           const topicId = topic?.id;
           if (topicId) {
-            debugLog(
-              "User opted out via filtered notice (delegated); suppressing auto-mode for this view only"
-            );
+            log.info("User opted out via filtered notice", {
+              topicId,
+              action: "Setting one-shot suppression flag"
+            });
             suppressNextAutoFilter = true;
             suppressedTopicId = topicId;
           }
@@ -149,44 +163,49 @@ export default apiInitializer("1.15.0", (api) => {
   }
 
   // Hook into page changes to detect topic navigation
-  api.onPageChange(() => {
-    debugLog("=== Page change detected ===");
+  api.onPageChange((url) => {
+    log.info("=== Page change detected ===", { url });
 
     schedule("afterRender", () => {
-      debugLog("Running afterRender hook");
+      log.debug("Running afterRender hook");
 
       const topicController = api.container.lookup("controller:topic");
-
-
-      debugLog("Topic controller:", topicController);
-
       const topic = topicController?.model;
-      debugLog("Topic model:", topic);
+
+      log.debug("Topic controller resolved", {
+        hasController: !!topicController,
+        hasTopic: !!topic,
+        topicId: topic?.id
+      });
 
       if (!topic) {
-        debugLog("Not on a topic page, clearing filter");
+        log.debug("Not on a topic page, clearing filter");
         clearOwnerFilter();
         return;
       }
 
-      // Access theme settings directly via the global settings object
-      debugLog("Theme settings:", settings);
-
       if (!settings) {
-        debugLog("No theme settings found, clearing filter");
+        log.warn("No theme settings found, clearing filter");
         clearOwnerFilter();
         return;
       }
 
       // Evaluate current filter state and auto-mode
-      const url = new URL(window.location.href);
-      const currentFilter = url.searchParams.get("username_filters");
+      const currentUrl = new URL(window.location.href);
+      const currentFilter = currentUrl.searchParams.get("username_filters");
       const hasFilteredNotice = !!document.querySelector(".posts-filtered-notice");
 
+      log.debug("Current state", {
+        currentFilter,
+        hasFilteredNotice,
+        bodyMarker: document.body.dataset.ownerCommentMode
+      });
 
       // One-shot per-topic opt-out (set when user toggles to unfiltered)
       if (isOptOut(topic.id)) {
-        debugLog("Opt-out present; skipping auto-filter once for this topic");
+        log.info("Opt-out present; skipping auto-filter once for this topic", {
+          topicId: topic.id
+        });
         clearOptOut(topic.id);
         clearOwnerFilter();
         return;
@@ -194,11 +213,10 @@ export default apiInitializer("1.15.0", (api) => {
 
       // If the page is already filtered (URL param or UI notice), do not re-apply.
       if (currentFilter || hasFilteredNotice) {
-        debugLog(
-          hasFilteredNotice
-            ? "Already server-filtered (UI notice present); marking mode and binding opt-out"
-            : "Already server-filtered (some username); marking mode and binding opt-out"
-        );
+        log.info("Already server-filtered; marking mode", {
+          source: hasFilteredNotice ? "UI notice" : "URL parameter",
+          currentFilter
+        });
         document.body.dataset.ownerCommentMode = "true";
         bindOptOutClick(topic.id);
         return;
@@ -207,35 +225,39 @@ export default apiInitializer("1.15.0", (api) => {
       // One-shot suppression after user opted out: skip auto-filter for this view only
       if (suppressNextAutoFilter) {
         if (topic.id === suppressedTopicId) {
-          debugLog("One-shot suppression active; skipping auto-filter for this view");
+          log.info("One-shot suppression active; skipping auto-filter", {
+            topicId: topic.id
+          });
           suppressNextAutoFilter = false;
           suppressedTopicId = null;
           clearOwnerFilter();
           return;
         } else {
           // Topic changed unexpectedly; clear the suppression
+          log.debug("Topic changed; clearing suppression flag", {
+            expectedTopicId: suppressedTopicId,
+            actualTopicId: topic.id
+          });
           suppressNextAutoFilter = false;
           suppressedTopicId = null;
         }
       }
 
-
       if (settings.auto_mode === false) {
-        debugLog("Auto-mode disabled via setting; skipping auto-filter");
+        log.info("Auto-mode disabled via setting; skipping auto-filter");
         clearOwnerFilter();
         return;
       }
 
-
       // Check if this topic's category is enabled for owner comments
       if (isCategoryEnabled(topic, settings)) {
-        debugLog("Category is enabled; ensuring server-side filter");
+        log.info("Category is enabled; ensuring server-side filter");
         const ok = ensureServerSideFilter(topic);
         if (ok) {
           document.body.dataset.ownerCommentMode = "true";
         }
       } else {
-        debugLog("Category not enabled, clearing filter");
+        log.debug("Category not enabled, clearing filter");
         clearOwnerFilter();
       }
     });

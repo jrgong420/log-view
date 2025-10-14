@@ -44,3 +44,11 @@ hide_reply_buttons_for_non_owners:
   default: false
   description: "Hide reply buttons on posts authored by non-owners in configured Owner comment categories. Applies in both filtered and regular topic views. Does not check Allowed groups. This is a UI-only restriction and does not prevent replies via keyboard shortcuts or API calls."
 
+
+# Debugging and logging
+
+debug_logging_enabled:
+  type: bool
+  default: false
+  description: "Enable detailed console logging for debugging theme component behavior. Only enable when troubleshooting issues. Warning: This will generate significant console output."
+

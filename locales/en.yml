@@ -6,6 +6,7 @@ en:
       allowed_groups: "Select one or more groups allowed to access this theme component. Leave empty to enable for all users (including anonymous). Note: Groups must have visibility set to 'group owners, members and moderators' or more permissive for the theme to detect user membership."
       behavior_for_anonymous: "[Deprecated] No longer used; access depends on Allowed groups (empty = everyone)."
       hide_reply_buttons_for_non_owners: "Hide top-level reply buttons (timeline and topic footer) from all users except the topic owner in categories configured for owner comments. Post-level reply buttons remain visible and are styled as primary actions. This is a UI-only restriction and does not prevent replies via keyboard shortcuts (Shift+R) or API."
+      debug_logging_enabled: "Enable verbose console logging for debugging theme component behavior. Warning: This will generate significant console output. Only enable when troubleshooting issues. Changes take effect on next page load."
   js:
     owner_comments:
       filtered_notice: "Viewing only posts by topic owner"
