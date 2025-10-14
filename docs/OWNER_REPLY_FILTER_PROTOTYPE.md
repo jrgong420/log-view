@@ -25,7 +25,7 @@ When activated (via `?owner_reply_filter=true` URL parameter):
 
 1. **Settings** (`settings.yml`):
    - `enable_owner_reply_filter` - Feature toggle (default: false)
-   - `owner_reply_filter_categories` - Category allowlist (empty = all)
+   - Uses existing `owner_comment_categories` setting for category allowlist
    - `show_owner_reply_filter_notice` - Show/hide notice banner
    - `debug_owner_reply_filter` - Debug logging
 
@@ -62,7 +62,7 @@ When activated (via `?owner_reply_filter=true` URL parameter):
 
 3. **Router logic**:
    - Checks URL for `owner_reply_filter=true` parameter
-   - Validates category allowlist
+   - Validates category allowlist (uses `owner_comment_categories` setting)
    - Skips if `username_filters` is present (avoid double-filtering)
    - Adds/removes body class
    - Injects notice banner with toggle button

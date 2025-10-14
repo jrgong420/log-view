@@ -14,11 +14,12 @@
 
 **File**: `settings.yml`
 
-Added 4 new settings:
+Added 3 new settings:
 - `enable_owner_reply_filter` (bool, default: false) - Master toggle
-- `owner_reply_filter_categories` (list, category) - Category allowlist
 - `show_owner_reply_filter_notice` (bool, default: true) - Show notice banner
 - `debug_owner_reply_filter` (bool, default: false) - Debug logging
+
+**Note**: Uses existing `owner_comment_categories` setting for category allowlist (shared with main owner filter feature)
 
 ### 2. Translations ✅
 
@@ -46,7 +47,7 @@ Added translations for:
 **File**: `javascripts/discourse/api-initializers/owner-reply-filter-router.gjs`
 
 - Monitors URL for `owner_reply_filter=true` parameter
-- Validates category allowlist
+- Validates category allowlist (uses `owner_comment_categories` setting)
 - Skips when `username_filters` is present (avoid conflicts)
 - Adds/removes `owner-reply-filter-active` body class
 - Injects notice banner with toggle button (idempotent)
@@ -88,7 +89,8 @@ Comprehensive documentation covering:
 In Discourse Admin → Customize → Themes → Your Theme → Settings:
 
 1. Set `enable_owner_reply_filter` to **true**
-2. (Optional) Add category IDs to `owner_reply_filter_categories` (leave empty for all)
+2. Configure `owner_comment_categories` if you want to limit to specific categories (leave empty for all)
+   - This is the same setting used by the main owner filter feature
 3. (Optional) Enable `debug_owner_reply_filter` for console logs
 
 ### 2. Activate the Filter
@@ -234,7 +236,7 @@ This is a **theme-only prototype** using client-side DOM hiding. The underlying 
 - `docs/OWNER_REPLY_FILTER_IMPLEMENTATION_SUMMARY.md` (this file)
 
 ### Modified Files
-- `settings.yml` - Added 4 new settings
+- `settings.yml` - Added 3 new settings (uses existing `owner_comment_categories`)
 - `locales/en.yml` - Added translations
 - `common/common.scss` - Added styles for filter and notice
 

@@ -50,13 +50,7 @@ hide_reply_buttons_for_non_owners:
 enable_owner_reply_filter:
   type: bool
   default: false
-  description: "Enable experimental filter to hide topic owner's replies to other users (keeps top-level posts and self-replies visible). Theme-only prototype; timeline/anchors may misalign. For production, use a server-side plugin."
-
-owner_reply_filter_categories:
-  type: list
-  list_type: category
-  default: ""
-  description: "Categories where the owner reply filter can be activated. Leave empty to allow in all categories."
+  description: "Enable experimental filter to hide topic owner's replies to other users (keeps top-level posts and self-replies visible). Uses the same 'Owner comment categories' setting. Theme-only prototype; timeline/anchors may misalign. For production, use a server-side plugin."
 
 show_owner_reply_filter_notice:
   type: bool

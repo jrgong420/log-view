@@ -42,11 +42,12 @@ export default apiInitializer("1.34.0", (api) => {
 
   /**
    * Check if current topic is in allowed categories
+   * Uses the same 'owner_comment_categories' setting as the main owner filter
    */
   function isAllowedCategory(topic) {
     if (!topic) return false;
-    
-    const allowedCategoriesStr = settings.owner_reply_filter_categories || "";
+
+    const allowedCategoriesStr = settings.owner_comment_categories || "";
     if (!allowedCategoriesStr.trim()) {
       // Empty = allow all categories
       return true;
