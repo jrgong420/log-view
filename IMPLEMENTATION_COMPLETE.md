@@ -1,8 +1,10 @@
 # Implementation Complete - Standard Reply Button Interception
 
-## ✅ Implementation Status: COMPLETE
+## ✅ Implementation Status: COMPLETE + FIXED
 
 All code changes have been successfully implemented to unify reply behavior between the standard Discourse reply button and the custom embedded reply button.
+
+**UPDATE**: Guard 2 has been fixed to handle floating/teleported post action menus. See `STANDARD_REPLY_BUTTON_FIX.md` for details.
 
 ---
 

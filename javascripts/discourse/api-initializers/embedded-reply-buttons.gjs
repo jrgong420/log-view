@@ -651,7 +651,7 @@ export default apiInitializer("1.14.0", (api) => {
     document.addEventListener(
       "click",
       async (e) => {
-        const btn = e.target?.closest?.("button.post-action-menu__reply");
+        const btn = e.target?.closest?.(".post-action-menu__reply");
         if (!btn) return;
 
         // Guard 1: Only intercept in owner comment mode
@@ -661,17 +661,43 @@ export default apiInitializer("1.14.0", (api) => {
           return;
         }
 
-        // Guard 2: Find the post element
-        const postElement = btn.closest("article.topic-post");
-        if (!postElement) {
-          console.log(`${LOG_PREFIX} Standard reply - no post element found`);
+        // Guard 2: Find post element or derive postNumber (multi-fallback approach)
+        let postElement = btn.closest("article.topic-post,[data-post-number],[data-post-id],li[id^='post_'],article[id^='post_']");
+        let postNumber = postElement ? extractPostNumberFromElement(postElement) : null;
+
+        // Fallback 1: Try data attributes on button itself
+        if (!postNumber) {
+          postNumber = Number(btn.dataset?.postNumber || btn.getAttribute("data-post-number"));
+        }
+
+        // Fallback 2: Parse aria-label (e.g., "Reply to post #814 by @username")
+        if (!postNumber) {
+          const ariaLabel = btn.getAttribute("aria-label");
+          const match = ariaLabel && ariaLabel.match(/post\s*#?(\d+)/i);
+          if (match) {
+            postNumber = Number(match[1]);
+            console.log(`${LOG_PREFIX} Standard reply - derived postNumber ${postNumber} from aria-label`);
+          }
+        }
+
+        // Fallback 3: If we have postNumber but no element, resolve globally
+        if (!postElement && postNumber) {
+          postElement = document.querySelector(
+            `article.topic-post[data-post-number="${postNumber}"],[data-post-number="${postNumber}"],#post_${postNumber}`
+          );
+          if (postElement) {
+            console.log(`${LOG_PREFIX} Standard reply - resolved postElement globally for post #${postNumber}`);
+          }
+        }
+
+        if (!postElement && !postNumber) {
+          console.log(`${LOG_PREFIX} Standard reply - no post element or number found`);
           return;
         }
 
         // Guard 3: Get topic and verify data availability
         const topic = api.container.lookup("controller:topic")?.model;
         const topicOwnerId = topic?.details?.created_by?.id;
-        const postNumber = extractPostNumberFromElement(postElement);
 
         if (!postNumber || !topic || !topicOwnerId) {
           console.log(`${LOG_PREFIX} Standard reply - missing required data`);
