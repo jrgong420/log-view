@@ -53,6 +53,16 @@ export default apiInitializer("1.34.0", (api) => {
     const postAuthorId = post.user_id;
     const postNumber = post.post_number;
 
+    // Debug: log transformer entry
+    debugLog("[post-class]", {
+      id: post.id,
+      post_number: postNumber,
+      user_id: postAuthorId,
+      topic_owner_id: topicOwnerId,
+      reply_to_post_number: post.reply_to_post_number,
+      reply_to_user_id: post.reply_to_user?.id ?? post.reply_to_user_id,
+    });
+
     // If this post is by owner, remember its number for self-reply inference
     if (postAuthorId === topicOwnerId && postNumber) {
       ownerPostNumbers.add(postNumber);
