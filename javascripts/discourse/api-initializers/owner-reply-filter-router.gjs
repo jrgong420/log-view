@@ -4,16 +4,16 @@ import { i18n } from "discourse-i18n";
 
 /**
  * Owner Reply Filter Router Logic (Experimental Prototype)
- * 
+ *
  * Handles URL query parameter (owner_reply_filter) and UI state management.
- * 
+ *
  * RESPONSIBILITIES:
  * 1. Check if filter should be active based on URL param and settings
  * 2. Add/remove body class 'owner-reply-filter-active' to trigger CSS hiding
  * 3. Inject filter notice and toggle button (once per topic, idempotent)
  * 4. Handle toggle clicks with redirect-loop guards
  * 5. Skip when username_filters is present (avoid double-filtering)
- * 
+ *
  * LIMITATIONS:
  * - Timeline and anchors may misalign (client-side only)
  * - For production, use server-side plugin
@@ -41,6 +41,110 @@ export default apiInitializer("1.34.0", (api) => {
 
   // Module-scoped set to suppress auto-activated filter per topic (no navigation)
   const suppressedTopics = new Set();
+
+  // Module-scoped DOM observer for marking posts (fallback when transformers don't run)
+  let postObserver = null;
+  let observedTopicId = null;
+
+  function getTopicOwnerUsername() {
+    const topic = api.container.lookup("controller:topic")?.model;
+    return topic?.user?.username;
+  }
+
+  function markPostElement(postEl, ownerUsername) {
+    try {
+      if (!postEl || !ownerUsername) return;
+
+      // Author username (for safety if not in owner-only view)
+      const author = postEl.querySelector(".names .username a")?.textContent?.trim();
+      if (!author || author !== ownerUsername) {
+        return; // Not owner's post
+      }
+
+      // Is this a reply? (reply-to tab present)
+      const replyTo = postEl.querySelector(".post-infos .reply-to-tab span");
+      if (!replyTo) {
+        return; // Top-level post, keep visible
+      }
+
+      const repliedUsername = replyTo.textContent?.trim();
+      if (!repliedUsername) {
+        return;
+      }
+
+      // Self-reply check
+      if (repliedUsername === ownerUsername) {
+        return; // self-reply, keep visible
+      }
+
+      // Mark as hidden-owner-reply on wrapper and article
+      postEl.classList.add("hidden-owner-reply");
+      const article = postEl.querySelector("article");
+      if (article) article.classList.add("hidden-owner-reply");
+
+      if (settings.debug_owner_reply_filter) {
+        console.log("[OwnerReplyFilterRouter] Marked hidden-owner-reply:", {
+          postNumber: postEl.getAttribute("data-post-number"),
+          author,
+          repliedUsername,
+        });
+      }
+    } catch (e) {
+      if (settings.debug_owner_reply_filter) {
+        console.warn("[OwnerReplyFilterRouter] markPostElement error", e);
+      }
+    }
+  }
+
+  function initialScanPosts(ownerUsername) {
+    const posts = document.querySelectorAll(".topic-post");
+    posts.forEach((el) => markPostElement(el, ownerUsername));
+  }
+
+  function startPostObserver(topic) {
+    const ownerUsername = getTopicOwnerUsername();
+    if (!ownerUsername) {
+      debugLog("Owner username not available; skipping post observer for now");
+      return;
+    }
+
+    // Avoid duplicate observers per topic
+    if (postObserver && observedTopicId === topic?.id) {
+      return;
+    }
+
+    stopPostObserver();
+    observedTopicId = topic?.id;
+
+    // Initial pass
+    initialScanPosts(ownerUsername);
+
+    const container = document.querySelector(".post-stream") || document;
+    postObserver = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        m.addedNodes?.forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          if (node.matches?.(".topic-post")) {
+            markPostElement(node, ownerUsername);
+          } else {
+            node.querySelectorAll?.(".topic-post").forEach((el) => markPostElement(el, ownerUsername));
+          }
+        });
+      }
+    });
+
+    postObserver.observe(container, { childList: true, subtree: true });
+    debugLog("MutationObserver set up for post stream");
+  }
+
+  function stopPostObserver() {
+    if (postObserver) {
+      postObserver.disconnect();
+      postObserver = null;
+      observedTopicId = null;
+      debugLog("MutationObserver disconnected");
+    }
+  }
 
   /**
    * Check if current topic is in allowed categories
@@ -194,6 +298,7 @@ export default apiInitializer("1.34.0", (api) => {
       debugLog(`Toggle clicked: suppressing auto-activated filter for topic ${topic.id}`);
       deactivateFilter();
       removeNotice();
+      stopPostObserver();
       return;
     }
 
@@ -201,16 +306,17 @@ export default apiInitializer("1.34.0", (api) => {
     debugLog("Toggle clicked: deactivating locally (no owner_reply_filter param and no auto-activation)");
     deactivateFilter();
     removeNotice();
+    stopPostObserver();
   }
 
   /**
    * Bind toggle click handler (once, using event delegation)
    */
   let toggleHandlerBound = false;
-  
+
   function bindToggleHandler() {
     if (toggleHandlerBound) return;
-    
+
     document.addEventListener("click", handleToggleClick, true);
     toggleHandlerBound = true;
     debugLog("Toggle handler bound (event delegation)");
@@ -222,7 +328,7 @@ export default apiInitializer("1.34.0", (api) => {
   api.onPageChange((url, title) => {
     schedule("afterRender", () => {
       const topic = api.container.lookup("controller:topic")?.model;
-      
+
       // Guard 1: Check suppression flag
       if (suppressNextNavigation && topic?.id === suppressedTopicId) {
         debugLog(`Suppressing navigation for topic ${topic.id}`);
@@ -230,6 +336,7 @@ export default apiInitializer("1.34.0", (api) => {
         suppressedTopicId = null;
         deactivateFilter();
         removeNotice();
+        stopPostObserver();
         return;
       }
 
@@ -244,6 +351,7 @@ export default apiInitializer("1.34.0", (api) => {
       if (!topic) {
         debugLog("Not on a topic page");
         deactivateFilter();
+        stopPostObserver();
         return;
       }
 
@@ -252,6 +360,7 @@ export default apiInitializer("1.34.0", (api) => {
         debugLog(`Filter suppressed for topic ${topic.id} by user`);
         deactivateFilter();
         removeNotice();
+        stopPostObserver();
         return;
       }
 
@@ -263,10 +372,12 @@ export default apiInitializer("1.34.0", (api) => {
         activateFilter();
         injectNotice();
         bindToggleHandler();
+        startPostObserver(topic);
       } else {
         debugLog("Filter not active");
         deactivateFilter();
         removeNotice();
+        stopPostObserver();
       }
     });
   });
