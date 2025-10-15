@@ -70,8 +70,11 @@ body:not(.theme-component-access-granted) {
 /* ===== Reply Button Icon Color Override ===== */
 
 /* Override the default grey color for reply button icons */
-nav.post-controls button.reply .d-icon {
-  color: var(--d-button-primary-text-color)!important;
+/* Only applies in configured owner comment categories */
+body.owner-comments-enabled {
+  nav.post-controls button.reply .d-icon {
+    color: var(--d-button-primary-text-color)!important;
+  }
 }
 
 
@@ -82,104 +85,108 @@ nav.post-controls button.reply .d-icon {
  * - Show Replies: consistent appearance in both collapsed/expanded states
  * - Reply: styled as primary action button to stand out
  * - Both buttons have proper hover, active, and focus states for accessibility
+ *
+ * Only applies in configured owner comment categories (gated by body.owner-comments-enabled)
  */
 
-/* Desktop — Show Replies Button (collapsed state) */
-@media screen and (min-width: 769px) {
-  button.post-action-menu__show-replies[aria-expanded="false"] {
-    color: var(--primary-900);
-    background: var(--primary-100);
-    transition: all 0.2s ease;
+body.owner-comments-enabled {
+  /* Desktop — Show Replies Button (collapsed state) */
+  @media screen and (min-width: 769px) {
+    button.post-action-menu__show-replies[aria-expanded="false"] {
+      color: var(--primary-900);
+      background: var(--primary-100);
+      transition: all 0.2s ease;
 
-    .d-icon {
-      color: currentColor;
+      .d-icon {
+        color: currentColor;
+      }
+
+      &:hover {
+        color: var(--d-post-control-text-color--hover);
+        background: var(--d-post-control-background--hover);
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--primary-300);
+        outline-offset: 2px;
+      }
     }
 
-    &:hover {
-      color: var(--d-post-control-text-color--hover);
-      background: var(--d-post-control-background--hover);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--primary-300);
-      outline-offset: 2px;
-    }
-  }
-
-  /* Expanded state keeps default Discourse styling */
-  button.post-action-menu__show-replies[aria-expanded="true"] {
-    .d-icon {
-      color: currentColor;
-    }
-  }
-}
-
-/* Mobile — Show Replies Button (collapsed state) */
-@media screen and (max-width: 768px) {
-  button.post-action-menu__show-replies[aria-expanded="false"] {
-    color: var(--primary-900);
-    background: var(--primary-100);
-    transition: all 0.2s ease;
-
-    .d-icon {
-      color: currentColor;
-    }
-
-    &:hover {
-      color: var(--d-post-control-text-color--hover);
-      background: var(--d-post-control-background--hover);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--primary-300);
-      outline-offset: 2px;
+    /* Expanded state keeps default Discourse styling */
+    button.post-action-menu__show-replies[aria-expanded="true"] {
+      .d-icon {
+        color: currentColor;
+      }
     }
   }
 
-  /* Expanded state keeps default Discourse styling */
-  button.post-action-menu__show-replies[aria-expanded="true"] {
-    .d-icon {
-      color: currentColor;
+  /* Mobile — Show Replies Button (collapsed state) */
+  @media screen and (max-width: 768px) {
+    button.post-action-menu__show-replies[aria-expanded="false"] {
+      color: var(--primary-900);
+      background: var(--primary-100);
+      transition: all 0.2s ease;
+
+      .d-icon {
+        color: currentColor;
+      }
+
+      &:hover {
+        color: var(--d-post-control-text-color--hover);
+        background: var(--d-post-control-background--hover);
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--primary-300);
+        outline-offset: 2px;
+      }
+    }
+
+    /* Expanded state keeps default Discourse styling */
+    button.post-action-menu__show-replies[aria-expanded="true"] {
+      .d-icon {
+        color: currentColor;
+      }
     }
   }
-}
 
-/* Reply Button — Primary Action Styling (Desktop & Mobile) */
-button.post-action-menu__reply {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  margin: 0 !important;
-  font-weight: normal !important;
-  color: var(--d-button-primary-text-color) !important;
-  background-color: var(--d-button-primary-bg-color) !important;
-  background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)) !important;
-  border-radius: var(--d-button-border-radius) !important;
-  transition: var(--d-button-transition) !important;
-  cursor: pointer !important;
-  font-size: var(--font-0) !important;
-  line-height: normal !important;
-  box-sizing: border-box !important;
-  padding: 0.5em 0.65em !important;
-  border: var(--d-button-border) !important;
-  opacity: 1 !important;
-
-  .d-icon {
+  /* Reply Button — Primary Action Styling (Desktop & Mobile) */
+  button.post-action-menu__reply {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 !important;
+    font-weight: normal !important;
     color: var(--d-button-primary-text-color) !important;
-  }
-
-  &:hover {
-    background-color: var(--d-button-primary-bg-color--hover) !important;
-    color: var(--d-button-primary-text-color--hover) !important;
+    background-color: var(--d-button-primary-bg-color) !important;
+    background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)) !important;
+    border-radius: var(--d-button-border-radius) !important;
+    transition: var(--d-button-transition) !important;
+    cursor: pointer !important;
+    font-size: var(--font-0) !important;
+    line-height: normal !important;
+    box-sizing: border-box !important;
+    padding: 0.5em 0.65em !important;
+    border: var(--d-button-border) !important;
+    opacity: 1 !important;
 
     .d-icon {
-      color: var(--d-button-primary-text-color--hover) !important;
+      color: var(--d-button-primary-text-color) !important;
     }
-  }
 
-  &:focus-visible {
-    outline: 2px solid var(--tertiary-low) !important;
-    outline-offset: 2px !important;
+    &:hover {
+      background-color: var(--d-button-primary-bg-color--hover) !important;
+      color: var(--d-button-primary-text-color--hover) !important;
+
+      .d-icon {
+        color: var(--d-button-primary-text-color--hover) !important;
+      }
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--tertiary-low) !important;
+      outline-offset: 2px !important;
+    }
   }
 }
 
@@ -203,6 +210,9 @@ button.post-action-menu__reply {
  *
  * Both apply in filtered and regular topic views.
  * Does not check Allowed groups setting.
+ *
+ * Note: Visual styling for reply buttons (above) is scoped by body.owner-comments-enabled
+ * to only apply in configured categories, independent of this hiding logic.
  */
 
 /* Hide post-level reply buttons on posts authored by non-owners */

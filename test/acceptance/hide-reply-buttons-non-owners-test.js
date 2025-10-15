@@ -148,6 +148,55 @@ acceptance(
         document.body.classList.contains("hide-reply-buttons-non-owners"),
         "Body class is not present when setting is disabled"
       );
+
+      // Category-scope body class should not be present
+      assert.notOk(
+        document.body.classList.contains("owner-comments-enabled"),
+        "owner-comments-enabled class is not present when setting is disabled"
+      );
+    });
+  }
+);
+
+acceptance(
+  "Hide Reply Buttons - Category Scoping",
+  function (needs) {
+    needs.user();
+    needs.settings({
+      hide_reply_buttons_for_non_owners: true,
+      owner_comment_categories: "1", // Only category 1
+    });
+
+    test("adds owner-comments-enabled class in configured category", async function (assert) {
+      await visit("/t/some-topic/1"); // Topic in category 1
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      assert.ok(
+        document.body.classList.contains("owner-comments-enabled"),
+        "owner-comments-enabled class is present in configured category"
+      );
+    });
+
+    test("does not add owner-comments-enabled class in non-configured category", async function (assert) {
+      await visit("/t/other-topic/2"); // Topic in category 2 (not configured)
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      assert.notOk(
+        document.body.classList.contains("owner-comments-enabled"),
+        "owner-comments-enabled class is not present in non-configured category"
+      );
+
+      // Posts should not be classified
+      const classifiedPosts = document.querySelectorAll(
+        "article.topic-post[data-owner-marked]"
+      );
+      assert.equal(
+        classifiedPosts.length,
+        0,
+        "Posts are not classified in non-configured category"
+      );
     });
   }
 );

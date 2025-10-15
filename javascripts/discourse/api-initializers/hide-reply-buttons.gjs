@@ -17,6 +17,14 @@ import { createLogger } from "../lib/logger";
  * This is a UI-only restriction and does not prevent replies via keyboard
  * shortcuts (Shift+R) or API calls.
  *
+ * Body classes added:
+ * - owner-comments-enabled: Added when setting is enabled AND topic is in
+ *   configured category (independent of viewer ownership). Used to scope
+ *   visual styling to only apply in configured categories.
+ * - hide-reply-buttons-non-owners: Added when viewer is NOT the topic owner
+ *   (only after setting and category checks pass). Used to hide top-level
+ *   reply buttons.
+ *
  * Settings used:
  * - hide_reply_buttons_for_non_owners: enable this feature
  * - owner_comment_categories: list of category IDs
@@ -171,8 +179,9 @@ export default apiInitializer("1.15.0", (api) => {
 
       // Guard 1: Check if setting is enabled
       if (!settings.hide_reply_buttons_for_non_owners) {
-        log.debug("Setting disabled; removing body class and skipping");
+        log.debug("Setting disabled; removing body classes and skipping");
         document.body.classList.remove("hide-reply-buttons-non-owners");
+        document.body.classList.remove("owner-comments-enabled");
         return;
       }
 
@@ -181,8 +190,9 @@ export default apiInitializer("1.15.0", (api) => {
       // Guard 2: Get topic data
       const topic = api.container.lookup("controller:topic")?.model;
       if (!topic) {
-        log.debug("No topic found; removing body class and skipping");
+        log.debug("No topic found; removing body classes and skipping");
         document.body.classList.remove("hide-reply-buttons-non-owners");
+        document.body.classList.remove("owner-comments-enabled");
         return;
       }
 
@@ -201,12 +211,18 @@ export default apiInitializer("1.15.0", (api) => {
       });
 
       if (!enabledCategories.includes(categoryId)) {
-        log.debug("Category not configured; removing body class and skipping");
+        log.debug("Category not configured; removing body classes and skipping");
         document.body.classList.remove("hide-reply-buttons-non-owners");
+        document.body.classList.remove("owner-comments-enabled");
         return;
       }
 
       log.info("Category is configured; proceeding with post classification");
+
+      // Add category-scope body class (independent of viewer ownership)
+      // This gates visual styling to only apply in configured categories
+      document.body.classList.add("owner-comments-enabled");
+      log.debug("Added owner-comments-enabled body class for category scoping");
 
       // Guard 4: Get topic owner ID
       const topicOwnerId = topic.details?.created_by?.id;
