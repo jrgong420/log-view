@@ -1,6 +1,7 @@
 import { apiInitializer } from "discourse/lib/api";
 import { schedule } from "@ember/runloop";
 import { createLogger } from "../lib/logger";
+import I18n from "discourse-i18n";
 
 export default apiInitializer("1.14.0", (api) => {
   let globalClickHandlerBound = false;
@@ -493,9 +494,9 @@ export default apiInitializer("1.14.0", (api) => {
     const btn = document.createElement("button");
     btn.className = "btn btn-small embedded-reply-button";
     btn.type = "button";
-    btn.textContent = "Reply";
-    btn.title = "Reply to owner's post";
-    btn.setAttribute("aria-label", "Reply to owner's post");
+    btn.textContent = I18n.t(themePrefix("js.embedded_reply.button_label"));
+    btn.title = I18n.t(themePrefix("js.embedded_reply.button_title"));
+    btn.setAttribute("aria-label", I18n.t(themePrefix("js.embedded_reply.button_title")));
 
     // Store the owner post number on the button for easy retrieval
     log.debug(`Attempting to find owner post for section:`, section);
@@ -816,9 +817,9 @@ export default apiInitializer("1.14.0", (api) => {
 
       const clickedBtn = showRepliesBtn || loadMoreBtn;
 
-      // Only process in owner comment mode
-      const isOwnerCommentMode = document.body.dataset.ownerCommentMode === "true";
-      if (!isOwnerCommentMode) {
+      // Process when owner-comments feature is enabled for this topic (independent of view mode)
+      const ownerCommentsEnabled = document.body.classList.contains("owner-comments-enabled");
+      if (!ownerCommentsEnabled) {
         return;
       }
 
@@ -1001,12 +1002,11 @@ export default apiInitializer("1.14.0", (api) => {
     }
 
     schedule("afterRender", () => {
-      // Check if we're in owner comment mode (filtered view)
-      const isOwnerCommentMode =
-        document.body.dataset.ownerCommentMode === "true";
+      // Proceed when owner-comments feature is enabled for this topic (independent of view mode)
+      const ownerCommentsEnabled = document.body.classList.contains("owner-comments-enabled");
 
-      if (!isOwnerCommentMode) {
-        log.debug(`Not in owner comment mode, skipping injection`);
+      if (!ownerCommentsEnabled) {
+        log.debug(`Owner comment feature not enabled for this topic; skipping injection`);
         return;
       }
 

@@ -4,3 +4,7 @@ de:
       unfiltered: "Thema"
       filtered: "Growreport"
 
+    embedded_reply:
+      button_label: "Antworten"
+      button_title: "Auf Beitrag des Eigentümers antworten"
+
