@@ -19,8 +19,12 @@ The reply button hiding feature is **completely independent** of group access co
 
 ### When Enabled
 - **Topic Owner**: Sees ALL reply buttons (timeline, topic footer, post-level, embedded)
-- **Non-Owner (logged in)**: Sees NO reply buttons
-- **Anonymous**: Sees NO reply buttons
+- **Non-Owner (logged in)**:
+  - ❌ Does NOT see: Timeline footer buttons, topic footer buttons, post-level buttons on non-owner posts
+  - ✅ DOES see: **Embedded reply buttons** (in embedded posts sections) - these allow non-owners to reply to owner posts
+- **Anonymous**:
+  - ❌ Does NOT see: Timeline footer buttons, topic footer buttons, post-level buttons
+  - ✅ DOES see: **Embedded reply buttons** (in embedded posts sections)
 
 ### When Disabled
 - **Everyone**: Sees all reply buttons (normal Discourse behavior)

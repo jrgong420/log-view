@@ -61,6 +61,7 @@ hide-reply-buttons-non-owners: false
 - [ ] Reply buttons have custom styling (primary button colors)
 - [ ] Post-level reply buttons on non-owner posts are hidden
 - [ ] Top-level reply buttons (timeline footer, topic footer) are hidden
+- [ ] **Embedded reply buttons (in embedded posts sections) remain VISIBLE** - these allow non-owners to reply to owner posts
 
 **Browser Console Check:**
 ```javascript

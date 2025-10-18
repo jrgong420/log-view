@@ -194,7 +194,7 @@ body.owner-comments-enabled {
 /* ===== Hide Reply Buttons for Non-Owners ===== */
 
 /*
- * IMPORTANT: This feature has two parts:
+ * IMPORTANT: This feature has three parts:
  *
  * 1. Post-level hiding: Targets posts classified as non-owner-post
  *    The JavaScript in hide-reply-buttons.gjs adds this class to posts based on:
@@ -208,7 +208,12 @@ body.owner-comments-enabled {
  *      - Topic in configured category (owner_comment_categories)
  *      - Viewer is anonymous OR viewer is NOT the topic owner
  *
- * Both apply in filtered and regular topic views.
+ * 3. Embedded reply buttons: ALWAYS VISIBLE when injected
+ *    These buttons allow non-owners to reply to owner posts in embedded sections.
+ *    They are NOT hidden by hide-reply-buttons-non-owners because they serve
+ *    the purpose of enabling non-owner participation in owner comment topics.
+ *
+ * Parts 1 and 2 apply in filtered and regular topic views.
  * Does not check Allowed groups setting.
  *
  * Note: Visual styling for reply buttons (above) is scoped by body.owner-comments-enabled
@@ -255,12 +260,14 @@ body.hide-reply-buttons-non-owners {
   #topic-footer-buttons .create,
   #topic-footer-buttons .reply-to-post,
   #topic-footer-buttons button.create,
-  #topic-footer-buttons button.reply-to-post,
-
-  /* Embedded reply buttons (section-level) */
-  .embedded-reply-button {
+  #topic-footer-buttons button.reply-to-post {
     display: none !important;
   }
+
+  /* NOTE: .embedded-reply-button is intentionally NOT hidden here.
+   * Embedded reply buttons should remain visible for non-owners because
+   * they allow non-owners to reply to the owner's posts, which is the
+   * intended behavior of the owner comment feature. */
 }
 
 

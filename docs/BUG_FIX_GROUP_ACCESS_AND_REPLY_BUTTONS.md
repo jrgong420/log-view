@@ -117,12 +117,14 @@ body.hide-reply-buttons-non-owners {
   #topic-footer-buttons .create,
   #topic-footer-buttons .reply-to-post,
   #topic-footer-buttons button.create,
-  #topic-footer-buttons button.reply-to-post,
-
-  /* Embedded reply buttons (section-level) */
-  .embedded-reply-button {
+  #topic-footer-buttons button.reply-to-post {
     display: none !important;
   }
+
+  /* NOTE: .embedded-reply-button is intentionally NOT hidden here.
+   * Embedded reply buttons should remain visible for non-owners because
+   * they allow non-owners to reply to the owner's posts, which is the
+   * intended behavior of the owner comment feature. */
 }
 ```
 
@@ -130,7 +132,7 @@ body.hide-reply-buttons-non-owners {
 1. Added `button.` prefix variants for newer Discourse versions
 2. Added `aria-label` attribute selectors as fallback
 3. Added `#topic-footer-buttons` ID selector
-4. Included embedded reply buttons
+4. **Embedded reply buttons are NOT hidden** - they allow non-owners to reply to owner posts
 5. Ensures comprehensive coverage across Discourse versions
 
 ### Fix 3: Enhanced Debug Logging for Reply Buttons
@@ -189,7 +191,7 @@ schedule("afterRender", () => {
    - Timeline footer reply buttons are hidden
    - Topic footer reply buttons are hidden
    - Post-level reply buttons on non-owner posts are hidden
-   - Embedded reply buttons are hidden
+   - **Embedded reply buttons remain VISIBLE** (they allow non-owners to reply to owner posts)
    - ALL button variations are caught by expanded CSS selectors
 2. ✅ When viewer IS the topic owner, all reply buttons are visible
 3. ✅ **This feature works independently of group access control** (no group membership check)
@@ -208,7 +210,7 @@ schedule("afterRender", () => {
 - [ ] Non-owner cannot see timeline footer reply buttons
 - [ ] Non-owner cannot see topic footer reply buttons
 - [ ] Non-owner cannot see post-level reply buttons on non-owner posts
-- [ ] Non-owner cannot see embedded reply buttons (section-level)
+- [ ] Non-owner **CAN** see embedded reply buttons (section-level) - these allow replying to owner posts
 - [ ] Topic owner CAN see all reply buttons
 - [ ] Check browser console for "User is topic owner" or "User is not topic owner" logs
 
