@@ -14,3 +14,7 @@ en:
     owner_toggle:
       unfiltered: "Thema"
       filtered: "Growreport"
+
+    embedded_reply:
+      button_label: "Reply"
+      button_title: "Reply to owner's post"

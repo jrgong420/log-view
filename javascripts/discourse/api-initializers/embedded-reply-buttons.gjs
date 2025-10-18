@@ -1,6 +1,7 @@
 import { apiInitializer } from "discourse/lib/api";
 import { schedule } from "@ember/runloop";
 import { createLogger } from "../lib/logger";
+import I18n from "discourse-i18n";
 
 export default apiInitializer("1.14.0", (api) => {
   let globalClickHandlerBound = false;
@@ -493,9 +494,9 @@ export default apiInitializer("1.14.0", (api) => {
     const btn = document.createElement("button");
     btn.className = "btn btn-small embedded-reply-button";
     btn.type = "button";
-    btn.textContent = "Reply";
-    btn.title = "Reply to owner's post";
-    btn.setAttribute("aria-label", "Reply to owner's post");
+    btn.textContent = I18n.t(themePrefix("js.embedded_reply.button_label"));
+    btn.title = I18n.t(themePrefix("js.embedded_reply.button_title"));
+    btn.setAttribute("aria-label", I18n.t(themePrefix("js.embedded_reply.button_title")));
 
     // Store the owner post number on the button for easy retrieval
     log.debug(`Attempting to find owner post for section:`, section);
