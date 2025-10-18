@@ -817,9 +817,9 @@ export default apiInitializer("1.14.0", (api) => {
 
       const clickedBtn = showRepliesBtn || loadMoreBtn;
 
-      // Only process in owner comment mode
-      const isOwnerCommentMode = document.body.dataset.ownerCommentMode === "true";
-      if (!isOwnerCommentMode) {
+      // Process when owner-comments feature is enabled for this topic (independent of view mode)
+      const ownerCommentsEnabled = document.body.classList.contains("owner-comments-enabled");
+      if (!ownerCommentsEnabled) {
         return;
       }
 
@@ -1002,12 +1002,11 @@ export default apiInitializer("1.14.0", (api) => {
     }
 
     schedule("afterRender", () => {
-      // Check if we're in owner comment mode (filtered view)
-      const isOwnerCommentMode =
-        document.body.dataset.ownerCommentMode === "true";
+      // Proceed when owner-comments feature is enabled for this topic (independent of view mode)
+      const ownerCommentsEnabled = document.body.classList.contains("owner-comments-enabled");
 
-      if (!isOwnerCommentMode) {
-        log.debug(`Not in owner comment mode, skipping injection`);
+      if (!ownerCommentsEnabled) {
+        log.debug(`Owner comment feature not enabled for this topic; skipping injection`);
         return;
       }
 
